@@ -1,5 +1,3 @@
-#include <iostream>
-#include <cassert>
 #include <string>
 #include <chrono>
 #include <thread>
@@ -9,14 +7,11 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-//#include <io.h>
 
 #include <chrono>
 #include <iostream>
 #include <time.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
-// #include <boost/property_tree/ptree.hpp>
-// #include <boost/optional.hpp>
 #include <sstream>
 #include <cstdlib>
 #include <nlohmann/json.hpp>
@@ -68,8 +63,6 @@ typedef struct _CustomData
 /* Handler for the pad-added signal */
 static void pad_added_handler(GstElement *src, GstPad *pad, CustomData *data);
 
-// gst-launch-1.0 filesrc location=2t.ts ! tsdemux name=demux demux. ! queue ! h264parse ! 'video/x-h264, stream-format=byte-stream, alignment=au' ! avdec_h264 ! autovideosink demux. ! queue ! 'meta/x-klv' ! filesink location=data.bin
-
 /* The appsink has received a buffer */
 static GstFlowReturn new_sample(GstElement *sink, CustomData *data)
 {
@@ -84,8 +77,8 @@ static GstFlowReturn new_sample(GstElement *sink, CustomData *data)
 
     if (gstBuffer)
     {
-      auto pts = GST_BUFFER_PTS (gstBuffer);
-      auto dts = GST_BUFFER_DTS (gstBuffer);
+      auto pts = GST_BUFFER_PTS(gstBuffer);
+      auto dts = GST_BUFFER_DTS(gstBuffer);
 
       bufSize = gst_buffer_get_size(gstBuffer);
       g_print("Klv buffer size %ld. PTS %ld   DTS %ld\n", bufSize, pts, dts);
@@ -93,7 +86,7 @@ static GstFlowReturn new_sample(GstElement *sink, CustomData *data)
       GstMapInfo map;
       gst_buffer_map(gstBuffer, &map, GST_MAP_READ);
 
-      char* jsonPckt = decode601Pckt((char *)map.data, map.size);
+      char *jsonPckt = decode601Pckt((char *)map.data, map.size);
       g_print("%s \n", jsonPckt);
 
       gst_sample_unref(sample);
@@ -115,24 +108,22 @@ int main(int argc, char *argv[])
   /* Initialize GStreamer */
   gst_init(&argc, &argv);
 
-  if (access((char*)PathToLibrary, F_OK) == -1)
-	{
-		puts("Couldn't find library at the specified path");
-		return -1;
-	}
+  if (access((char *)PathToLibrary, F_OK) == -1)
+  {
+    puts("Couldn't find library at the specified path");
+    return -1;
+  }
 
-	handle = dlopen((char*)PathToLibrary, RTLD_LAZY);
+  handle = dlopen((char *)PathToLibrary, RTLD_LAZY);
   if (handle == 0)
   {
     puts("Couldn't load library");
     return -1;
   }
 
-
-	getNodeInfoFunc GetNodeInfo = (getNodeInfoFunc)funcAddr(handle, (char*)"GetNodeInfo");
-	char* nodeInfo = GetNodeInfo();
-	printf("The NodeInfo: %s \n", nodeInfo);
-
+  getNodeInfoFunc GetNodeInfo = (getNodeInfoFunc)funcAddr(handle, (char *)"GetNodeInfo");
+  char *nodeInfo = GetNodeInfo();
+  printf("The NodeInfo: %s \n", nodeInfo);
 
   decode601Pckt = (decodeFunc)funcAddr(handle, (char *)"Decode");
 
@@ -267,13 +258,9 @@ static void pad_added_handler(GstElement *src, GstPad *new_pad, CustomData *data
   g_print("Received new pad '%s' from '%s' of type '%s':\n", GST_PAD_NAME(new_pad), GST_ELEMENT_NAME(src), new_pad_type);
 
   if (g_str_has_prefix(new_pad_type, "video/x-h264"))
-  {
     sink_pad = gst_element_get_static_pad(data->videoQueue, "sink");
-  }
   else if (g_str_has_prefix(new_pad_type, "meta/x-klv"))
-  {
     sink_pad = gst_element_get_static_pad(data->dataQueue, "sink");
-  }
 
   if (gst_pad_is_linked(sink_pad))
   {
@@ -284,13 +271,9 @@ static void pad_added_handler(GstElement *src, GstPad *new_pad, CustomData *data
   /* Attempt the link */
   ret = gst_pad_link(new_pad, sink_pad);
   if (GST_PAD_LINK_FAILED(ret))
-  {
     g_print("Type is '%s' but link failed.\n", new_pad_type);
-  }
   else
-  {
     g_print("Link succeeded (type '%s').\n", new_pad_type);
-  }
 
 exit:
   /* Unreference the new pad's caps, if we got them */
