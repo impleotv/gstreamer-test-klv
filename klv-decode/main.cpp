@@ -1,20 +1,9 @@
+#include <stdlib.h>
+#include <stdio.h>
 #include <string>
-#include <chrono>
-#include <thread>
 
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
-
-#include <stdlib.h>
-#include <stdio.h>
-
-#include <chrono>
-#include <iostream>
-#include <time.h>
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <sstream>
-#include <cstdlib>
-#include <nlohmann/json.hpp>
 
 #include <dlfcn.h>
 #include <unistd.h>
@@ -27,6 +16,8 @@
 const char *PathToLibrary = "../misbCoreNative/MisbCoreNativeLib.so";
 const char *PathToLicenseFile = "/home/alexc/Licenses/MisbCoreLegion.lic";
 const char *LicenseKey = "D6D237EF-6F41CFAF-7A37BA74-6656A4E5";
+const char *SrcFileName = "/home/alexc/Movies/2t.ts";
+
 
 typedef char *(*getNodeInfoFunc)();
 typedef bool (*activateFunc)(char *, char *);
@@ -34,15 +25,6 @@ typedef char *(*decodeFunc)(char *, int len);
 typedef void (*cleanUpFunc)();
 
 void *handle;
-
-// Add ${Boost_PROGRAM_OPTIONS_LIBRARY} to cmake
-// using namespace std::chrono;
-// using namespace boost::posix_time;
-using json = nlohmann::json;
-
-static std::string pcktLogString;
-
-static bool fASYNC_KLV = true;
 
 decodeFunc decode601Pckt;
 
@@ -67,7 +49,6 @@ static void pad_added_handler(GstElement *src, GstPad *pad, CustomData *data);
 static GstFlowReturn new_sample(GstElement *sink, CustomData *data)
 {
   GstSample *sample;
-  gsize bufSize;
 
   /* Retrieve the buffer */
   g_signal_emit_by_name(sink, "pull-sample", &sample);
@@ -80,7 +61,7 @@ static GstFlowReturn new_sample(GstElement *sink, CustomData *data)
       auto pts = GST_BUFFER_PTS(gstBuffer);
       auto dts = GST_BUFFER_DTS(gstBuffer);
 
-      bufSize = gst_buffer_get_size(gstBuffer);
+      gsize bufSize = gst_buffer_get_size(gstBuffer);
       g_print("Klv buffer size %ld. PTS %ld   DTS %ld\n", bufSize, pts, dts);
 
       GstMapInfo map;
@@ -108,23 +89,33 @@ int main(int argc, char *argv[])
   /* Initialize GStreamer */
   gst_init(&argc, &argv);
 
+
+  /* Check that misbCoreNative library exists */
   if (access((char *)PathToLibrary, F_OK) == -1)
   {
-    puts("Couldn't find library at the specified path");
+    g_printerr("Couldn't find library at the specified path");
     return -1;
   }
 
+  /* Load library */
   handle = dlopen((char *)PathToLibrary, RTLD_LAZY);
   if (handle == 0)
   {
-    puts("Couldn't load library");
+    g_printerr("Couldn't load library");
     return -1;
   }
 
+  /* Get function pointers and read node info*/
   getNodeInfoFunc GetNodeInfo = (getNodeInfoFunc)funcAddr(handle, (char *)"GetNodeInfo");
   char *nodeInfo = GetNodeInfo();
-  printf("The NodeInfo: %s \n", nodeInfo);
+  g_print("The NodeInfo: %s \n", nodeInfo);
 
+  /* Get function pointers and activate license */
+	activateFunc Activate = (activateFunc)funcAddr(handle, (char*)"Activate");
+	bool fValid = Activate((char*)PathToLicenseFile, (char*)LicenseKey);
+  g_print("License: %s \n", fValid ? "Valid" : "Invalid. Demo mode.");
+
+  /* Get function pointers to decode method */
   decode601Pckt = (decodeFunc)funcAddr(handle, (char *)"Decode");
 
   /* Create the elements */
@@ -138,7 +129,7 @@ int main(int argc, char *argv[])
   data.dataSink = gst_element_factory_make("appsink", "dataSink");
 
   /* Create the empty pipeline */
-  data.pipeline = gst_pipeline_new("test-pipeline");
+  data.pipeline = gst_pipeline_new("decode-pipeline");
 
   if (!data.pipeline || !data.source || !data.tsDemux || !data.videoQueue || !data.dataQueue || !data.h264parse || !data.avdec || !data.videoSink || !data.dataSink)
   {
@@ -151,27 +142,27 @@ int main(int argc, char *argv[])
 
   if (!gst_element_link(data.source, data.tsDemux))
   {
-    g_printerr("Elements could not be linked.\n");
+    g_printerr("Cannot link sourse to demux.\n");
     gst_object_unref(data.pipeline);
     return -1;
   }
 
   if (!gst_element_link_many(data.videoQueue, data.h264parse, data.avdec, data.videoSink, NULL))
   {
-    g_printerr("Elements could not be linked.\n");
+    g_printerr("Video processing elements could not be linked.\n");
     gst_object_unref(data.pipeline);
     return -1;
   }
 
   if (!gst_element_link(data.dataQueue, data.dataSink))
   {
-    g_printerr("Elements could not be linked.\n");
+    g_printerr("Data processing elements could not be linked.\n");
     gst_object_unref(data.pipeline);
     return -1;
   }
 
   /* Set the URI to play */
-  g_object_set(G_OBJECT(data.source), "location", "/home/alexc/Movies/2t.ts", NULL);
+  g_object_set(G_OBJECT(data.source), "location", SrcFileName, NULL);
 
   /* Configure appsink */
   g_object_set(data.dataSink, "emit-signals", TRUE, NULL);
@@ -238,6 +229,11 @@ int main(int argc, char *argv[])
   gst_object_unref(bus);
   gst_element_set_state(data.pipeline, GST_STATE_NULL);
   gst_object_unref(data.pipeline);
+
+  /* Clean up allocated resources */
+	cleanUpFunc cleanUp = (cleanUpFunc)funcAddr(handle, (char*)"CleanUp");
+	cleanUp();
+
   return 0;
 }
 

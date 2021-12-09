@@ -4,7 +4,6 @@ set(PKG_CONFIG_USE_CMAKE_PREFIX_PATH ON)
 
 project(klvInjector)
 
-
 find_package(PkgConfig REQUIRED)
 if ( NOT (PKGCONFIG_FOUND))
       message(FATAL_ERROR "Please Install PPkgConfig: CMake will Exit")
@@ -14,7 +13,6 @@ if ( NOT (GST_FOUND))
       message(FATAL_ERROR "Please Install Gstreamer Dev: CMake will Exit")
 endif()
 set(ENV{PKG_CONFIG_PATH})
-
 
 include(FetchContent)
 
@@ -28,14 +26,12 @@ if(NOT json_POPULATED)
   add_subdirectory(${json_SOURCE_DIR} ${json_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
 
-
-
 include_directories("${GST_INCLUDE_DIRS}")
 link_libraries(${GST_LIBRARIES} ${CMAKE_DL_LIBS} )
 
-ADD_EXECUTABLE(klvInjector main.cpp)
+add_executable(klvInjector main.cpp)
 
-TARGET_LINK_LIBRARIES (klvInjector
+target_link_libraries (klvInjector
     gstapp-1.0
     nlohmann_json::nlohmann_json
     -pthread
