@@ -25,7 +25,6 @@ typedef char *(*decodeFunc)(char *, int len);
 typedef void (*cleanUpFunc)();
 
 void *handle;
-
 decodeFunc decode601Pckt;
 
 /* Structure to contain all our information, so we can pass it to callbacks */
@@ -105,17 +104,17 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  /* Get function pointers and read node info*/
+  /* Get function pointer and read node info*/
   getNodeInfoFunc GetNodeInfo = (getNodeInfoFunc)funcAddr(handle, (char *)"GetNodeInfo");
   char *nodeInfo = GetNodeInfo();
   g_print("The NodeInfo: %s \n", nodeInfo);
 
-  /* Get function pointers and activate license */
+  /* Get function pointer and activate license */
 	activateFunc Activate = (activateFunc)funcAddr(handle, (char*)"Activate");
 	bool fValid = Activate((char*)PathToLicenseFile, (char*)LicenseKey);
   g_print("License: %s \n", fValid ? "Valid" : "Invalid. Demo mode.");
 
-  /* Get function pointers to decode method */
+  /* Get function pointer to decode method */
   decode601Pckt = (decodeFunc)funcAddr(handle, (char *)"Decode");
 
   /* Create the elements */
