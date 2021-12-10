@@ -34,3 +34,5 @@
 
 /build/
 CMakeLists.txt.*
+
+*.pdf

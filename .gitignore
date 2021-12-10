@@ -35,3 +35,5 @@
 /misbCoreNative/
 /build/
 CMakeLists.txt.*
+
+*.pdf
