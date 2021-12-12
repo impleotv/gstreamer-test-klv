@@ -3,6 +3,7 @@
 #include <string>
 #include <thread>
 #include <stdio.h>
+#include <unistd.h>
 
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
@@ -30,10 +31,14 @@ void *handle;
 encodeFunc encode601Pckt;
 
 static GMainLoop *loop;
-static std::string pcktMsg("Packet ");
-static std::string pcktLogString;
+static std::chrono::steady_clock::time_point lastPcktTime = std::chrono::steady_clock::now();
+static int frameRate = 30;
+static float frameDuration = 1.0 / (float)frameRate;
+static unsigned long long counter = 0;
 
-const char* jsonPcktStr = R"(
+static void pushKlv(GstElement *src, guint, GstElement);
+
+const char *jsonPcktStr = R"(
       {
         "3": "MISSION01",
         "4": "AF-101",
@@ -75,55 +80,6 @@ const char* jsonPcktStr = R"(
         "65": 14       
     })";
 
-
-static void pushKlv(GstElement *src, guint /*length*/, GstElement /**update*/)
-{
-  GstFlowReturn ret;
-  GstBuffer *buffer;
-  static int counter = {0};
-  bool isUpdate{false};
-
-  std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-  while (!isUpdate)
-  {
-    std::chrono::steady_clock::time_point current = std::chrono::steady_clock::now();
-    float diff = std::chrono::duration<float>(current - start).count();
-
-    if (diff > 0.04)
-    {
-      counter++;
-      isUpdate = true;
-    }
-  }
-
-  int len;
-
-
-  // First, encode the klv buffer from jsonPcktStr
-  char *buf = encode601Pckt((char *)(jsonPcktStr), len);
-  g_print("The buff len is %d \n", len);
-
-  buffer = gst_buffer_new_allocate(NULL, len, NULL);
-
-  // For ASYNC_KLV, we need to remove timestamp and duration from the buffer
-  GST_BUFFER_PTS(buffer) = GST_CLOCK_TIME_NONE;
-  GST_BUFFER_DTS(buffer) = GST_CLOCK_TIME_NONE;
-  GST_BUFFER_DURATION(buffer) = GST_CLOCK_TIME_NONE;
-
-  gst_buffer_fill(buffer, 0, buf, len);
-
-  pcktLogString = pcktMsg + std::to_string(counter);
-  std::cout << pcktLogString << std::endl;
-
-  ret = gst_app_src_push_buffer((GstAppSrc *)src, buffer);
-
-  if (ret != GST_FLOW_OK)
-  {
-    g_printerr("flow not ok");
-    g_main_loop_quit(loop);
-  }
-}
-
 int main(int argc, char *argv[])
 {
   GstElement *pipeline;
@@ -131,6 +87,9 @@ int main(int argc, char *argv[])
   GstCaps *src_filter_caps, *video_filter_caps;
   GstStateChangeReturn ret;
   guint len;
+  GstBus *bus;
+  GstMessage *msg;
+  gboolean terminate = FALSE;
 
   gst_init(&argc, &argv);
 
@@ -180,7 +139,7 @@ int main(int argc, char *argv[])
   g_object_set(G_OBJECT(dataSrc), "format", GST_FORMAT_TIME, NULL);
   g_object_set(G_OBJECT(dataSrc), "do-timestamp", TRUE, NULL);
 
-  GstCaps *source_caps = gst_caps_new_simple("video/x-raw", "width", G_TYPE_INT, 720, "height", G_TYPE_INT, 480, "framerate", GST_TYPE_FRACTION, 25, 1, NULL);
+  GstCaps *source_caps = gst_caps_new_simple("video/x-raw", "width", G_TYPE_INT, 720, "height", G_TYPE_INT, 480, "framerate", GST_TYPE_FRACTION, frameRate, 1, NULL);
   g_object_set(srcCapsFilter, "caps", source_caps, NULL);
 
   g_object_set(G_OBJECT(encoder264), "bitrate", 2000000, NULL);
@@ -189,7 +148,7 @@ int main(int argc, char *argv[])
   g_object_set(vidCapsFilter, "caps", video_filter_caps, NULL);
 
   g_object_set(G_OBJECT(filesink), "location", TargerPath, NULL);
-  
+
   /* Assign callback to push metadata */
   g_signal_connect(dataSrc, "need-data", G_CALLBACK(pushKlv), NULL);
 
@@ -208,12 +167,106 @@ int main(int argc, char *argv[])
   ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
   g_main_loop_run(loop);
 
-  if (ret == GST_STATE_CHANGE_FAILURE)
+  /* Listen to the bus */
+  bus = gst_element_get_bus(pipeline);
+  do
   {
-    g_printerr("unable to change piplinr state");
-    gst_object_unref(pipeline);
-    return -1;
+    msg = gst_bus_timed_pop_filtered(bus, GST_CLOCK_TIME_NONE, (GstMessageType)(GST_MESSAGE_STATE_CHANGED | GST_MESSAGE_ERROR | GST_MESSAGE_EOS));
+
+    /* Parse message */
+    if (msg != NULL)
+    {
+      GError *err;
+      gchar *debug_info;
+
+      switch (GST_MESSAGE_TYPE(msg))
+      {
+      case GST_MESSAGE_ERROR:
+        gst_message_parse_error(msg, &err, &debug_info);
+        g_printerr("Error received from element %s: %s\n", GST_OBJECT_NAME(msg->src), err->message);
+        g_printerr("Debugging information: %s\n", debug_info ? debug_info : "none");
+        g_clear_error(&err);
+        g_free(debug_info);
+        terminate = TRUE;
+        break;
+  
+      case GST_MESSAGE_STATE_CHANGED:
+        /* We are only interested in state-changed messages from the pipeline */
+        if (GST_MESSAGE_SRC(msg) == GST_OBJECT(pipeline))
+        {
+          GstState old_state, new_state, pending_state;
+          gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
+          g_print("Pipeline state changed from %s to %s:\n",
+                  gst_element_state_get_name(old_state), gst_element_state_get_name(new_state));
+        }
+        break;
+      default:
+        /* We should not reach here */
+        g_printerr("Unexpected message received.\n");
+        break;
+      }
+      gst_message_unref(msg);
+    }
+  } while (!terminate);
+
+  /* Free resources */
+  gst_object_unref(bus);
+  gst_element_set_state(pipeline, GST_STATE_NULL);
+  gst_object_unref(pipeline);
+
+  /* Clean up allocated resources */
+	cleanUpFunc cleanUp = (cleanUpFunc)funcAddr(handle, (char*)"CleanUp");
+	cleanUp();  
+  
+  return 0;
+}
+
+
+
+/* Callback function for encoding and injection of Klv metadata */
+static void pushKlv(GstElement *src, guint, GstElement)
+{
+  GstFlowReturn ret;
+  GstBuffer *buffer;
+  bool fInsert = false;
+  int len;
+
+  // Wait for a frame duration interval since the last inserted packet. As we're inserting ASYNC KLV, it is good enough for the demo...
+  while (!fInsert)
+  {
+    std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    float diff = std::chrono::duration<float>(now - lastPcktTime).count();
+
+    if (diff > frameDuration)
+      fInsert = true;
+    else
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 
-  gst_element_set_state(pipeline, GST_STATE_NULL);
+  // First, encode the klv buffer from jsonPcktStr
+  char *buf = encode601Pckt((char *)(jsonPcktStr), len);
+
+  buffer = gst_buffer_new_allocate(NULL, len, NULL);
+
+  // For ASYNC_KLV, we need to remove timestamp and duration from the buffer
+  GST_BUFFER_PTS(buffer) = GST_CLOCK_TIME_NONE;
+  GST_BUFFER_DTS(buffer) = GST_CLOCK_TIME_NONE;
+  GST_BUFFER_DURATION(buffer) = GST_CLOCK_TIME_NONE;
+
+  // Fill the buffer with the encoded KLV data
+  gst_buffer_fill(buffer, 0, buf, len);
+
+  ret = gst_app_src_push_buffer((GstAppSrc *)src, buffer);
+
+  if (ret != GST_FLOW_OK)
+  {
+    g_printerr("Flow error");
+    g_main_loop_quit(loop);
+  }
+  else
+  {
+    lastPcktTime = std::chrono::steady_clock::now();
+    counter++;
+    g_print("Klv packet count: %llu.  Buf size: %d \n", counter, len);
+  }
 }

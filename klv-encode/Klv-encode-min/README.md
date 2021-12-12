@@ -54,32 +54,27 @@ encodeFunc encode601Pckt = (encodeFunc)funcAddr(handle, (char *)"Encode");
 Now, lets look at the callback. 
 
 ```cpp
-static void pushKlv(GstElement *src, guint /*length*/, GstElement /**update*/)
+static void pushKlv(GstElement *src, guint, GstElement)
 {
   GstFlowReturn ret;
   GstBuffer *buffer;
-  static int counter = {0};
-  bool isUpdate{false};
-
-  std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-  while (!isUpdate)
-  {
-    std::chrono::steady_clock::time_point current = std::chrono::steady_clock::now();
-    float diff = std::chrono::duration<float>(current - start).count();
-
-    if (diff > 0.04)
-    {
-      counter++;
-      isUpdate = true;
-    }
-  }
-
+  bool fInsert = false;
   int len;
 
+  // Wait for a frame duration interval since the last inserted packet. As we're inserting ASYNC KLV, it is good enough for the demo...
+  while (!fInsert)
+  {
+    std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    float diff = std::chrono::duration<float>(now - lastPcktTime).count();
+
+    if (diff > frameDuration)
+      fInsert = true;
+    else
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
 
   // First, encode the klv buffer from jsonPcktStr
   char *buf = encode601Pckt((char *)(jsonPcktStr), len);
-  g_print("The buff len is %d \n", len);
 
   buffer = gst_buffer_new_allocate(NULL, len, NULL);
 
@@ -88,21 +83,23 @@ static void pushKlv(GstElement *src, guint /*length*/, GstElement /**update*/)
   GST_BUFFER_DTS(buffer) = GST_CLOCK_TIME_NONE;
   GST_BUFFER_DURATION(buffer) = GST_CLOCK_TIME_NONE;
 
+  // Fill the buffer with the encoded KLV data
   gst_buffer_fill(buffer, 0, buf, len);
-
-  pcktLogString = pcktMsg + std::to_string(counter);
-  std::cout << pcktLogString << std::endl;
 
   ret = gst_app_src_push_buffer((GstAppSrc *)src, buffer);
 
   if (ret != GST_FLOW_OK)
   {
-    g_printerr("flow not ok");
+    g_printerr("Flow error");
     g_main_loop_quit(loop);
   }
+  else
+  {
+    lastPcktTime = std::chrono::steady_clock::now();
+    counter++;
+    g_print("Klv packet count: %llu.  Buf size: %d \n", counter, len);
+  }
 }
-
-
 ```
 
 ## Building the processing part
