@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 set(PKG_CONFIG_USE_CMAKE_PREFIX_PATH ON)
 
-project(klvInjector)
+project(klvInjectorMin)
 
 find_package(PkgConfig REQUIRED)
 if ( NOT (PKGCONFIG_FOUND))
@@ -14,25 +14,12 @@ if ( NOT (GST_FOUND))
 endif()
 set(ENV{PKG_CONFIG_PATH})
 
-include(FetchContent)
-
-FetchContent_Declare(json
-  GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG v3.7.3)
-
-FetchContent_GetProperties(json)
-if(NOT json_POPULATED)
-  FetchContent_Populate(json)
-  add_subdirectory(${json_SOURCE_DIR} ${json_BINARY_DIR} EXCLUDE_FROM_ALL)
-endif()
-
 include_directories("${GST_INCLUDE_DIRS}")
 link_libraries(${GST_LIBRARIES} ${CMAKE_DL_LIBS} )
 
-add_executable(klvInjector main.cpp)
+add_executable(klvInjectorMin main.cpp)
 
-target_link_libraries (klvInjector
+target_link_libraries (klvInjectorMin
     gstapp-1.0
-    nlohmann_json::nlohmann_json
     -pthread
     )
