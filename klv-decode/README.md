@@ -155,3 +155,18 @@ In the above code we retrieve the buffer from **GstSample** and send it to **dec
 The return value will be a **json** string with decoded data (according to the **MISB601** standard). We can now parse it to obtain the *key:value* pairs!  
 For now, we're simply sending the string to console.  
 Additionally to the data we can get **pts** and **dts** timestamps (relevant for **SYNC KLV** only, in case of **ASYNC KLV** they will be **-1**). With this information we can achieve a frame accurate sync to the video.
+
+## Cleaning up
+
+**MisbCore** allocates memory for the last decoded buffer, so we need to free it at the end:  
+
+
+```cpp
+  /* Clean up allocated resources */
+	cleanUpFunc cleanUp = (cleanUpFunc)funcAddr(handle, (char*)"CleanUp");
+	cleanUp();  
+ ``` 
+
+## Source code  
+
+ The complete source code is available as part of SDK. 

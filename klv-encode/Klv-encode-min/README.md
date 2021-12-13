@@ -23,12 +23,12 @@ g_object_set(G_OBJECT(dataSrc), "caps", gst_caps_new_simple("meta/x-klv", "parse
   g_object_set(G_OBJECT(dataSrc), "do-timestamp", TRUE, NULL);
 ```
 
-We also configure video encoding and file target parameters, but its not really relevant here.
+We should also configure video encoding and file target parameters (check out the sample source code for more info).
 
 Lets assign a callback **need-data** which will signal that the source needs more data. In this callback we'll encode our metadata and push the RAW KLV:   
 
 ```cpp
-/* Assign callback to push metadata */
+/* Assign callback to encode and push metadata */
   g_signal_connect(dataSrc, "need-data", G_CALLBACK(pushKlv), NULL);
 ```
 
@@ -102,90 +102,41 @@ static void pushKlv(GstElement *src, guint, GstElement)
 }
 ```
 
-## Building the processing part
+### Klv timestamp  
 
-Video processing part is very traditional and not a point of interest here - we parse H.264, decode it and send frames for rendering.
+In the sample, we don't provide a mandatory **Tag 2** (timestamp).  
+When no timestamp is found, **MisbCore** will automatically set the current time. 
 
-### Metadata processing
 
-#### Metadata extraction
+## Running the application.
 
-Though creating a special plugin is probably a good idea, we'll be using a standard **appsink** for data processing.  
-All we have to do is to configure it to emit events (important!!!) and define a callback:  
+Now, everything is ready and we can run the application:  
 
-```cpp
- /* Configure appsink */
-  g_object_set(data.dataSink, "emit-signals", TRUE, NULL);
-  g_signal_connect(data.dataSink, "new-sample", G_CALLBACK(new_sample), &data);
+```bash
+The NodeInfo: NI-MISBCORE-WCF9EAWJF46EC2EPQQXTFFDEH2NCB0KYXS1NBNHNSE0SB9K2KJAG: 
+Klv packet count: 1.  Buf size: 106 
+Klv packet count: 2.  Buf size: 106 
+Klv packet count: 3.  Buf size: 106 
+Klv packet count: 4.  Buf size: 106 
+Klv packet count: 5.  Buf size: 106 
+Klv packet count: 6.  Buf size: 106 
+Klv packet count: 7.  Buf size: 106 
+Klv packet count: 8.  Buf size: 106 
+Klv packet count: 9.  Buf size: 106 
 ```
+STANAG 4609 file should be created and a packet counter with the buffer size will be sent to console.
 
-That's basically it! Now, we'll get a callback with the KLV buffer every time **tsdemux** encounters a KLV metadata in the stream.
+## Cleaning up
 
-#### Metadata decoding
-
-We'll be using **MisbCoreNative** library for KLV and MISB metadata decoding.  
-
-First, we load the library (somewhere at the beginning of application):  
-
-```cpp
-void *handle;
-
-/* Load library */
-handle = dlopen((char *)PathToLibrary, RTLD_LAZY);
-
-```
-
-Next, we get the pointer to the **decode** method:  
+**MisbCore** allocates memory for the last encoded buffer, so we need to free it at the end:  
 
 
 ```cpp
-typedef char *(*decodeFunc)(char *, int len);
-decodeFunc decode601Pckt;
+  /* Clean up allocated resources */
+	cleanUpFunc cleanUp = (cleanUpFunc)funcAddr(handle, (char*)"CleanUp");
+	cleanUp();  
+ ``` 
 
-...
+## Source code  
 
- /* Get function pointer to decode method */
-decode601Pckt = (decodeFunc)funcAddr(handle, (char *)"Decode");
-
-```
-
-And finally, we can implement the data processing callback:  
-
-```cpp
-static GstFlowReturn new_sample(GstElement *sink, CustomData *data)
-{
-  GstSample *sample;
-
-  /* Retrieve the buffer */
-  g_signal_emit_by_name(sink, "pull-sample", &sample);
-  if (sample)
-  {
-    GstBuffer *gstBuffer = gst_sample_get_buffer(sample);
-
-    if (gstBuffer)
-    {
-      auto pts = GST_BUFFER_PTS(gstBuffer);
-      auto dts = GST_BUFFER_DTS(gstBuffer);
-
-      gsize bufSize = gst_buffer_get_size(gstBuffer);
-      g_print("Klv buffer size %ld. PTS %ld   DTS %ld\n", bufSize, pts, dts);
-
-      GstMapInfo map;
-      gst_buffer_map(gstBuffer, &map, GST_MAP_READ);
-
-      char *jsonPckt = decode601Pckt((char *)map.data, map.size);
-      g_print("%s \n", jsonPckt);
-
-      gst_sample_unref(sample);
-      return GST_FLOW_OK;
-    }
-  }
-
-  return GST_FLOW_ERROR;
-}
-```
-
-In the above code we retrieve the buffer from **GstSample** and send it to **decode601Pckt** function for decoding.  
-The return value will be a **json** string with decoded data (according to the **MISB601** standard). We can now parse it to obtain the *key:value* pairs!  
-For now, we're simply sending the string to console.  
-Additionally to the data we can get **pts** and **dts** timestamps (relevant for **SYNC KLV** only, in case of **ASYNC KLV** they will be **-1**). With this information we can achieve a frame accurate sync to the video.
+ The complete source code is available as part of SDK. 

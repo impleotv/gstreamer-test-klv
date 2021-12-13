@@ -88,7 +88,6 @@ int main(int argc, char *argv[])
   /* Initialize GStreamer */
   gst_init(&argc, &argv);
 
-
   /* Check that misbCoreNative library exists */
   if (access((char *)PathToLibrary, F_OK) == -1)
   {

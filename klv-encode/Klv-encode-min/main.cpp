@@ -149,7 +149,7 @@ int main(int argc, char *argv[])
 
   g_object_set(G_OBJECT(filesink), "location", TargerPath, NULL);
 
-  /* Assign callback to push metadata */
+  /* Assign callback to encode and push metadata */
   g_signal_connect(dataSrc, "need-data", G_CALLBACK(pushKlv), NULL);
 
   gst_bin_add_many(GST_BIN(pipeline), source, videoConvert, videoScale, srcCapsFilter, encoder264, vidCapsFilter, parser, mpegtsmux, video_queue, dataSrc, filesink, NULL);
