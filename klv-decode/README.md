@@ -9,6 +9,8 @@ gst-launch-1.0 filesrc location=file.ts ! tsdemux name=demux demux. ! queue ! h2
 
 ```
 
+> Note, the above pipeline is for code explanation only. It won't work with **gst-launch**!!! 
+
 For the sake of simplicity, lets assume we have a transport file (container) with H.264 video and one Klv PID.
 The demuxer will separate them and expose through different output ports. In this way, different branches will be created in the pipeline, dealing with video and metadata separately - video will be played back and the Klv metadata - decoded and sent to the console.
 
