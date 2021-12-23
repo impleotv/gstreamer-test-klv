@@ -17,10 +17,17 @@
 #define F_OK 0
 #endif
 
-const char *PathToLibrary = "../../../misbCoreNative/MisbCoreNativeLib.so";
-const char *PathToLicenseFile = "/home/alexc/Licenses/MisbCoreLegion.lic";
-const char *LicenseKey = "D6D237EF-6F41CFAF-7A37BA74-6656A4E5";
-const char *TargerPath = "/home/alexc/tmp/gTestFile.ts";
+#if defined(_WIN32)
+const char *PathToLibrary = "../../../bin/win-x64/MisbCoreNativeLib.dll";
+#else
+// For x64
+const char *PathToLibrary = "../../../bin/linux-x64/MisbCoreNativeLib.so";
+// for ARM
+// const char *PathToLibrary = "../../bin/linux-arm64/MisbCoreNativeLib.so";
+#endif
+
+std::string PathToLicenseFile;
+std::string LicenseKey;
 
 typedef char *(*getNodeInfoFunc)();
 typedef bool (*activateFunc)(char *, char *);
@@ -83,13 +90,28 @@ const char *jsonPcktStr = R"(
 int main(int argc, char *argv[])
 {
   GstElement *pipeline;
-  GstElement *source, *srcCapsFilter, *dataSrc, *encoder264, *mpegtsmux, *parser, *vidCapsFilter, *videoConvert, *videoScale, *avsink, *video_queue, *filesink;
-  GstCaps *src_filter_caps, *video_filter_caps;
+  GstElement *source, *srcCapsFilter, *dataSrc, *encoder264, *mpegtsmux, *parser, *vidCapsFilter, *videoConvert, *videoScale, *timeoverlay, *avsink, *video_queue, *filesink;
+  GstCaps *src_filter_caps, *source_caps, *video_filter_caps, *time_filter_caps;
   GstStateChangeReturn ret;
-  guint len;
   GstBus *bus;
   GstMessage *msg;
   gboolean terminate = FALSE;
+
+  if (argc < 2)
+  {
+    g_printerr("Please provide a target file name.\n");
+    return -1;
+  }
+
+  // copy first argument to fileName  - this is the file we will write to
+  std::string TargerPath = argv[1];
+
+  // copy additional arguments (if exist) to license file path and license key
+  if (argc > 3)
+  {
+    PathToLicenseFile = argv[2];
+    LicenseKey = argv[3];
+  }
 
   gst_init(&argc, &argv);
 
@@ -104,6 +126,7 @@ int main(int argc, char *argv[])
   vidCapsFilter = gst_element_factory_make("capsfilter", NULL);
   videoConvert = gst_element_factory_make("videoconvert", NULL);
   videoScale = gst_element_factory_make("videoscale", NULL);
+  timeoverlay = gst_element_factory_make("timeoverlay", NULL);
   dataSrc = gst_element_factory_make("appsrc", NULL);
   avsink = gst_element_factory_make("autovideosink", "sink");
   filesink = gst_element_factory_make("filesink", "filesink");
@@ -129,7 +152,7 @@ int main(int argc, char *argv[])
 
   pipeline = gst_pipeline_new("encode-pipeline");
 
-  if (!pipeline || !source || !srcCapsFilter || !dataSrc || !mpegtsmux || !parser || !vidCapsFilter || !videoConvert || !videoScale || !avsink || !video_queue || !filesink)
+  if (!pipeline || !source || !srcCapsFilter || !dataSrc || !mpegtsmux || !parser || !vidCapsFilter || !videoConvert || !videoScale || !timeoverlay || !avsink || !video_queue || !filesink)
   {
     g_printerr("Not all elements could be created.\n");
     return -1;
@@ -139,7 +162,7 @@ int main(int argc, char *argv[])
   g_object_set(G_OBJECT(dataSrc), "format", GST_FORMAT_TIME, NULL);
   g_object_set(G_OBJECT(dataSrc), "do-timestamp", TRUE, NULL);
 
-  GstCaps *source_caps = gst_caps_new_simple("video/x-raw", "width", G_TYPE_INT, 720, "height", G_TYPE_INT, 480, "framerate", GST_TYPE_FRACTION, frameRate, 1, NULL);
+  source_caps = gst_caps_new_simple("video/x-raw", "width", G_TYPE_INT, 720, "height", G_TYPE_INT, 480, "framerate", GST_TYPE_FRACTION, frameRate, 1, NULL);
   g_object_set(srcCapsFilter, "caps", source_caps, NULL);
 
   g_object_set(G_OBJECT(encoder264), "bitrate", 2000000, NULL);
@@ -147,13 +170,13 @@ int main(int argc, char *argv[])
   video_filter_caps = gst_caps_from_string("video/x-h264, stream-format=(string)byte-stream");
   g_object_set(vidCapsFilter, "caps", video_filter_caps, NULL);
 
-  g_object_set(G_OBJECT(filesink), "location", TargerPath, NULL);
+  g_object_set(G_OBJECT(filesink), "location", TargerPath.c_str(), NULL);
 
   /* Assign callback to encode and push metadata */
   g_signal_connect(dataSrc, "need-data", G_CALLBACK(pushKlv), NULL);
 
-  gst_bin_add_many(GST_BIN(pipeline), source, videoConvert, videoScale, srcCapsFilter, encoder264, vidCapsFilter, parser, mpegtsmux, video_queue, dataSrc, filesink, NULL);
-  if (!gst_element_link_many(source, srcCapsFilter, encoder264, vidCapsFilter, video_queue, mpegtsmux, NULL) ||
+  gst_bin_add_many(GST_BIN(pipeline), source, videoConvert, videoScale, timeoverlay, srcCapsFilter, encoder264, vidCapsFilter, parser, mpegtsmux, video_queue, dataSrc, filesink, NULL);
+  if (!gst_element_link_many(source, srcCapsFilter, timeoverlay, encoder264, vidCapsFilter, video_queue, mpegtsmux, NULL) ||
       !gst_element_link_many(dataSrc, mpegtsmux, NULL) ||
       !gst_element_link_many(mpegtsmux, filesink, NULL))
   {
@@ -189,7 +212,7 @@ int main(int argc, char *argv[])
         g_free(debug_info);
         terminate = TRUE;
         break;
-  
+
       case GST_MESSAGE_STATE_CHANGED:
         /* We are only interested in state-changed messages from the pipeline */
         if (GST_MESSAGE_SRC(msg) == GST_OBJECT(pipeline))
@@ -215,13 +238,11 @@ int main(int argc, char *argv[])
   gst_object_unref(pipeline);
 
   /* Clean up allocated resources */
-	cleanUpFunc cleanUp = (cleanUpFunc)funcAddr(handle, (char*)"CleanUp");
-	cleanUp();  
-  
+  cleanUpFunc cleanUp = (cleanUpFunc)funcAddr(handle, (char *)"CleanUp");
+  cleanUp();
+
   return 0;
 }
-
-
 
 /* Callback function for encoding and injection of Klv metadata */
 static void pushKlv(GstElement *src, guint, GstElement)

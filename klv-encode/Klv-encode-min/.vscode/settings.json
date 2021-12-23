@@ -1,4 +1,11 @@
 {
+    "cmake.debugConfig": {
+        "args": [
+            "/home/alexc/tmp/gTestFile.ts",
+            "/home/alexc/Licenses/MisbCoreLegion.lic",
+            "D6D237EF-6F41CFAF-7A37BA74-6656A4E5"  
+        ]
+    },
     "files.associations": {
         "array": "cpp",
         "atomic": "cpp",

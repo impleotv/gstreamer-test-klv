@@ -9,5 +9,5 @@
 
  ## KlvDecode
 
- Demonstrates how to extract and decode MISB601 KLV encoded metadata from STANAG 4609 stream
+ Demonstrates how to extract and decode MISB601 KLV encoded metadata from STANAG 4609 file
 

@@ -33,7 +33,8 @@
 *.app
 
 /misbCoreNative/
-/build/
+**/build/
 CMakeLists.txt.*
+/bin/
 
 *.pdf

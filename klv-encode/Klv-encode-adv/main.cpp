@@ -25,9 +25,17 @@
 #define F_OK 0
 #endif
 
-const char *PathToLibrary = "../../misbCoreNative/MisbCoreNativeLib.so";
-const char *PathToLicenseFile = "/home/alexc/Licenses/MisbCoreLegion.lic";
-const char *LicenseKey = "D6D237EF-6F41CFAF-7A37BA74-6656A4E5";
+#if defined(_WIN32)
+const char *PathToLibrary = "../../../bin/win-x64/MisbCoreNativeLib.dll";
+#else
+// For x64
+const char *PathToLibrary = "../../../bin/linux-x64/MisbCoreNativeLib.so";
+// for ARM
+// const char *PathToLibrary = "../../bin/linux-arm64/MisbCoreNativeLib.so";
+#endif
+
+std::string PathToLicenseFile;
+std::string LicenseKey;
 
 typedef char *(*getNodeInfoFunc)();
 typedef bool (*activateFunc)(char *, char *);
@@ -207,6 +215,23 @@ int main(int argc, char *argv[])
   guint len;
   GstElement *dataSrc;
   GstElement *encoder264;
+
+  if (argc < 2)
+  {
+    g_printerr("Please provide a target file name.\n");
+    return -1;
+  }
+
+  // copy first argument to fileName  - this is the file we will write to
+  std::string TargerPath = argv[1];
+
+  // copy additional arguments (if exist) to license file path and license key
+  if (argc > 3)
+  {
+    PathToLicenseFile = argv[2];
+    LicenseKey = argv[3];
+  }
+
   gst_init(&argc, &argv);
 
   loop = g_main_loop_new(NULL, false);
@@ -221,8 +246,7 @@ int main(int argc, char *argv[])
   parser = gst_element_factory_make("h264parse", NULL);
   capsFilter = gst_element_factory_make("capsfilter", NULL);
   bufferSize = gst_element_factory_make("rndbuffersize", NULL);
-  udpSink = gst_element_factory_make("udpsink", NULL);
-  // multifilesink = gst_element_factory_make("multifilesink"  , NULL);
+  //udpSink = gst_element_factory_make("udpsink", NULL);
   videoConvert = gst_element_factory_make("videoconvert", NULL);
   videoScale = gst_element_factory_make("videoscale", NULL);
   dataSrc = gst_element_factory_make("appsrc", NULL);
@@ -265,7 +289,6 @@ int main(int argc, char *argv[])
                                              "height", G_TYPE_INT, 480,
                                              "framerate", GST_TYPE_FRACTION, 25, 1, NULL);
 
-  //g_object_set(G_OBJECT(src), "device", "/dev/video0" , NULL);
   g_object_set(srcCapsFilter, "caps", source_caps, NULL);
 
   g_object_set(G_OBJECT(bufferSize), "min", 1316, NULL);
@@ -278,30 +301,20 @@ int main(int argc, char *argv[])
   filter_caps = gst_caps_from_string("video/x-h264, stream-format=(string)byte-stream");
   g_object_set(capsFilter, "caps", filter_caps, NULL);
 
-  g_object_set(G_OBJECT(filesink), "location", "/home/alexc/tmp/gfile.ts", NULL);
+  g_object_set(G_OBJECT(filesink), "location", TargerPath.c_str(), NULL);
 
-  g_object_set(G_OBJECT(udpSink), "host", "227.1.1.1", NULL);
-  g_object_set(G_OBJECT(udpSink), "auto-multicast", true, NULL);
+  // g_object_set(G_OBJECT(udpSink), "host", "227.1.1.1", NULL);
+  // g_object_set(G_OBJECT(udpSink), "auto-multicast", true, NULL);
+  // g_object_set(G_OBJECT(udpSink), "port", 30120, NULL);
 
-  g_object_set(G_OBJECT(udpSink), "port", 30120, NULL);
-  // g_object_set(G_OBJECT(udpSink), "async" , false , NULL);
-  // g_object_set(G_OBJECT(udpSink), "sync" , false, NULL);
-  // g_object_set(G_OBJECT(udpSink), "ttl-mc" , 255, NULL);
-  // g_object_set(G_OBJECT(udpSink), "qos-dscp", 30, NULL);
 
-  // g_object_set(G_OBJECT(multifilesink), "next-file", 4, NULL);
-  // g_object_set(G_OBJECT(multifilesink), "location", "video%d.ts", NULL);
-  // g_object_set(G_OBJECT(multifilesink), "max-file-size" , 10000000, NULL);
-
-  if (!srcCapsFilter)
+  if (!pipeline || !source || !videoConvert || !videoScale || !srcCapsFilter || !encoder264 || !capsFilter || !parser || !mpegtsmux || !bufferSize || !video_queue || !dataSrc || !filesink)
   {
-    std::cout << "srcCapsfilter is NULL" << std::endl;
+    g_printerr("Not all elements could be created.\n");
+    return -1;
   }
 
   g_signal_connect(dataSrc, "need-data", G_CALLBACK(pushKlv), NULL);
-
-  // gst_bin_add_many(GST_BIN(pipeTest), /*src*/source, videoConvert, videoScale, /*srcCapsFilter,*/ encoder264, /* capsFilter,*/ parser, mpegtsmux,
-  //                  /*dataSrc, bufferSize,*/ /*multifilesink,*/ avsink /*udpSink*/,  NULL);
 
   gst_bin_add_many(GST_BIN(pipeline), source, videoConvert, videoScale, srcCapsFilter, encoder264, capsFilter, parser, mpegtsmux, bufferSize, video_queue, dataSrc, filesink, /*udpSink,*/ NULL);
   if (!gst_element_link_many(source, srcCapsFilter, encoder264, capsFilter, video_queue, mpegtsmux, NULL) ||
@@ -313,13 +326,6 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  // if(!gst_element_link_many(/*src*/source,  encoder264, /* capsFilter,*/ parser, mpegtsmux ,NULL) ||
-  //  //   !gst_element_link_many(dataSrc, mpegtsmux, NULL)                            ||
-  //     !gst_element_link_many(mpegtsmux, /*bufferSize,*/ avsink, /*udpSink,*/ /*multifilesink,*/ NULL))
-  // {
-  //     g_printerr("Elements could not be linked");
-  // }
-
   g_object_set(source, "pattern", 0, NULL);
 
   ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
@@ -327,7 +333,7 @@ int main(int argc, char *argv[])
 
   if (ret == GST_STATE_CHANGE_FAILURE)
   {
-    g_printerr("unable to change piplinr state");
+    g_printerr("unable to change pipeline state");
     gst_object_unref(pipeline);
     return -1;
   }

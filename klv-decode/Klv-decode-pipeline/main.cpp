@@ -13,11 +13,17 @@
 #define F_OK 0
 #endif
 
-const char *PathToLibrary = "../misbCoreNative/MisbCoreNativeLib.so";
-const char *PathToLicenseFile = "/home/alexc/Licenses/MisbCoreLegion.lic";
-const char *LicenseKey = "D6D237EF-6F41CFAF-7A37BA74-6656A4E5";
-const char *SrcFileName = "/home/alexc/Movies/2t.ts";
+#if defined(_WIN32)
+const char *PathToLibrary = "../../../bin/win-x64/MisbCoreNativeLib.dll";
+#else
+// For x64
+const char *PathToLibrary = "../../../bin/linux-x64/MisbCoreNativeLib.so";
+// for ARM
+// const char *PathToLibrary = "../../bin/linux-arm64/MisbCoreNativeLib.so";
+#endif
 
+std::string PathToLicenseFile;
+std::string LicenseKey;
 
 typedef char *(*getNodeInfoFunc)();
 typedef bool (*activateFunc)(char *, char *);
@@ -85,6 +91,22 @@ int main(int argc, char *argv[])
   GstStateChangeReturn ret;
   gboolean terminate = FALSE;
 
+  if (argc < 2)
+  {
+    g_printerr("Please provide a file name.\n");
+    return -1;
+  }
+
+  // copy first argument to fileName  - this is the file to be played
+  std::string SrcFileName = argv[1];
+
+  // copy additional arguments (if exist) to license file path and license key
+  if (argc > 3)
+  {
+    PathToLicenseFile = argv[2];
+    LicenseKey = argv[3];
+  }
+
   /* Initialize GStreamer */
   gst_init(&argc, &argv);
 
@@ -109,8 +131,8 @@ int main(int argc, char *argv[])
   g_print("The NodeInfo: %s \n", nodeInfo);
 
   /* Get function pointer and activate license */
-	activateFunc Activate = (activateFunc)funcAddr(handle, (char*)"Activate");
-	bool fValid = Activate((char*)PathToLicenseFile, (char*)LicenseKey);
+  activateFunc Activate = (activateFunc)funcAddr(handle, (char *)"Activate");
+  bool fValid = Activate((char *)PathToLicenseFile.c_str(), (char *)LicenseKey.c_str());
   g_print("License: %s \n", fValid ? "Valid" : "Invalid. Demo mode.");
 
   /* Get function pointer to decode method */
@@ -160,7 +182,7 @@ int main(int argc, char *argv[])
   }
 
   /* Set the URI to play */
-  g_object_set(G_OBJECT(data.source), "location", SrcFileName, NULL);
+  g_object_set(G_OBJECT(data.source), "location", SrcFileName.c_str(), NULL);
 
   /* Configure appsink */
   g_object_set(data.dataSink, "emit-signals", TRUE, NULL);
@@ -229,8 +251,8 @@ int main(int argc, char *argv[])
   gst_object_unref(data.pipeline);
 
   /* Clean up allocated resources */
-	cleanUpFunc cleanUp = (cleanUpFunc)funcAddr(handle, (char*)"CleanUp");
-	cleanUp();
+  cleanUpFunc cleanUp = (cleanUpFunc)funcAddr(handle, (char *)"CleanUp");
+  cleanUp();
 
   return 0;
 }
