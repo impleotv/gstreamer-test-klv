@@ -48,6 +48,7 @@ static void pushKlv(GstElement *src, guint, GstElement);
 typedef struct _CustomData
 {
   GstElement *pipeline;
+  GstElement *urisourcebin;
   GstElement *uridecodebin;
   GstElement *parsebin;
   GstElement *dataSrc;
@@ -177,12 +178,28 @@ int main(int argc, char *argv[])
 
  // data.pipeline = gst_pipeline_new("encode-pipeline");
 
- // data.pipeline = gst_parse_launch("urisourcebin uri=file:///home/alexc/Movies/2t.ts ! parsebin name=myparsebin ! decodebin ! autovideosink", NULL);
- // data.pipeline = gst_parse_launch("uridecodebin name=uridecodebin uri=file:///home/alexc/Movies/2t.ts ! autovideosink", NULL);
-  data.pipeline = gst_parse_launch("urisourcebin uri=file:///home/alexc/Movies/2t.ts ! parsebin name=parsebin ! decodebin ! autovideosink", NULL);
+// data.pipeline = gst_parse_launch("urisourcebin uri=file:///home/alexc/Movies/2t.ts name=urisourcebin ! parsebin name=parsebin ! fakesink", NULL);
+    data.pipeline = gst_parse_launch("urisourcebin uri=file:///home/alexc/Movies/bipbop.ts name=urisourcebin ! parsebin name=parsebin ! tee name=t t. ! decodebin ! autovideosink t. ! queue ! mpegtsmux ! filesink location=/home/alexc/tmp/newTestFile.ts", NULL);
+ // data.pipeline = gst_parse_launch("uridecodebin name=uridecodebin uri=file:///home/alexc/Movies/2t.ts ! fakesink", NULL);
+ // data.pipeline = gst_parse_launch("urisourcebin uri=file:///home/alexc/Movies/2t.ts ! parsebin name=parsebin ! decodebin ! autovideosink", NULL);
 
+  data.dataSrc = gst_element_factory_make("appsrc", NULL);
 
-//  gst_bin_add_many(GST_BIN(data.pipeline), data.dataQueue, data.mpegtsmux, data.filesink, NULL);
+  gst_bin_add_many(GST_BIN(data.pipeline), data.dataSrc, NULL);
+
+  if(gst_element_link_many(data.dataSrc, data.mpegtsmux, NULL))
+  {
+    g_printerr("Elements could not be linked.\n");
+    gst_object_unref(data.pipeline);
+    return -1;
+  }
+
+  g_object_set(G_OBJECT(data.dataSrc), "caps", gst_caps_new_simple("meta/x-klv", "parsed", G_TYPE_BOOLEAN, TRUE, "spare", G_TYPE_BOOLEAN, TRUE, "is-live", G_TYPE_BOOLEAN, TRUE, NULL), NULL);
+  g_object_set(G_OBJECT(data.dataSrc), "format", GST_FORMAT_TIME, NULL);
+  g_object_set(G_OBJECT(data.dataSrc), "do-timestamp", TRUE, NULL);
+
+  g_signal_connect(data.dataSrc, "need-data", G_CALLBACK(pushKlv), NULL);
+
 
   // if (!gst_element_link(data.dataQueue, data.dataSink))
   // {
@@ -222,9 +239,15 @@ int main(int argc, char *argv[])
   // g_object_set(G_OBJECT(dataSrc), "format", GST_FORMAT_TIME, NULL);
   // g_object_set(G_OBJECT(dataSrc), "do-timestamp", TRUE, NULL);
 
- // data.uridecodebin = gst_bin_get_by_name (GST_BIN(data.pipeline), "uridecodebin");
- // g_assert(data.uridecodebin);
-
+  data.parsebin = gst_bin_get_by_name (GST_BIN(data.pipeline), "parsebin");
+  g_assert(data.parsebin);
+  g_signal_connect(data.parsebin, "pad-added", G_CALLBACK(pad_added_handler), &data);
+  g_signal_connect(data.parsebin, "unknown-type", G_CALLBACK(pad_unknown_type_handler), &data);
+  
+  // data.urisourcebin = gst_bin_get_by_name (GST_BIN(data.pipeline), "urisourcebin");
+  // g_assert(data.urisourcebin);
+  // g_signal_connect(data.urisourcebin, "pad-added", G_CALLBACK(pad_added_handler), &data);
+  // g_signal_connect(data.urisourcebin, "unknown-type", G_CALLBACK(pad_unknown_type_handler), &data);
 
   // /* Configure appsink */
   // g_object_set(data.dataSink, "emit-signals", TRUE, NULL);
@@ -236,11 +259,11 @@ int main(int argc, char *argv[])
  /* Connect to the pad-added signal */ 
 
 
-  data.parsebin = gst_bin_get_by_name (GST_BIN(data.pipeline), "parsebin");
-  g_assert(data.parsebin);
+  // data.parsebin = gst_bin_get_by_name (GST_BIN(data.pipeline), "parsebin");
+  // g_assert(data.parsebin);
 
-  g_signal_connect(data.parsebin, "pad-added", G_CALLBACK(pad_added_handler), &data);
-  g_signal_connect(data.parsebin, "unknown-type", G_CALLBACK(pad_unknown_type_handler), &data);
+  // g_signal_connect(data.parsebin, "pad-added", G_CALLBACK(pad_added_handler), &data);
+  // g_signal_connect(data.parsebin, "unknown-type", G_CALLBACK(pad_unknown_type_handler), &data);
 
 
 //  gst_bin_add(GST_BIN(data.dataSink), NULL);
