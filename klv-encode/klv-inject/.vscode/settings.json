@@ -2,7 +2,7 @@
     "cmake.debugConfig": {
         "args": [
             "file:///home/alexc/Movies/bipbop.ts",
-            "udp://227.1.1.1:30120",
+            "/home/alexc/tmp/test.ts",
             "/home/alexc/Licenses/MisbCoreLegion.lic",
             "D6D237EF-6F41CFAF-7A37BA74-6656A4E5"  
         ]
