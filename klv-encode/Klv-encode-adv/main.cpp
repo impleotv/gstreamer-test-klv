@@ -37,10 +37,17 @@ const char *PathToLibrary = "../../../bin/linux-x64/MisbCoreNativeLib.so";
 std::string PathToLicenseFile;
 std::string LicenseKey;
 
-typedef char *(*getNodeInfoFunc)();
-typedef bool (*activateFunc)(char *, char *);
-typedef char *(*encodeFunc)(char *, int &len);
+struct PcktBuffer
+{
+	char* buffer;
+	int length;
+};
+
+typedef char* (*getNodeInfoFunc)();
+typedef bool (*activateFunc)(char*, char*);
+typedef PcktBuffer (*encodeFunc)(char*);
 typedef void (*cleanUpFunc)();
+
 
 void *handle;
 
@@ -77,7 +84,6 @@ static void pushKlv(GstElement *src, guint /*length*/, GstElement /**update*/)
 
   auto jspnPckt = json::parse(R"(
       {
-        "2": "2021-12-16T13:44:54",
         "3": "MISSION01",
         "4": "AF-101",
         "5": 159.974365,
@@ -171,17 +177,17 @@ static void pushKlv(GstElement *src, guint /*length*/, GstElement /**update*/)
   //ptime t = microsec_clock::universal_time();
   //jspnPckt["2"] = to_iso_extended_string(t);
 
-  int len;
-  encodeFunc encode601Pckt = (encodeFunc)funcAddr(handle, (char *)"Encode");
+
+  encodeFunc encode601Pckt = (encodeFunc)funcAddr(handle, (char*)"Encode");
 
   auto timeStr = jspnPckt.dump();
   const char *pPcktStr = const_cast<char *>(timeStr.c_str());
 
   // First, encode the klv buffer from jspnPckt
-  char *buf = encode601Pckt((char *)(pPcktStr), len);
-  printf("The buff len is %d \n", len);
+  PcktBuffer pcktBuf = encode601Pckt((char*)(pPcktStr));
+  printf("The buff len is %d \n", pcktBuf.length);
 
-  buffer = gst_buffer_new_allocate(NULL, len, NULL);
+  buffer = gst_buffer_new_allocate(NULL, pcktBuf.length, NULL);
 
   if (fASYNC_KLV)
   {
@@ -190,7 +196,7 @@ static void pushKlv(GstElement *src, guint /*length*/, GstElement /**update*/)
     GST_BUFFER_DURATION(buffer) = GST_CLOCK_TIME_NONE;
   }
 
-  gst_buffer_fill(buffer, 0, buf, len);
+  gst_buffer_fill(buffer, 0, pcktBuf.buffer, pcktBuf.length);
 
   pcktLogString = pcktMsg + std::to_string(counter);
   std::cout << pcktLogString << std::endl;

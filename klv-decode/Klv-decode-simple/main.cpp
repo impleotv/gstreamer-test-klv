@@ -37,8 +37,9 @@ decodeFunc decode601Pckt;
 typedef struct _CustomData
 {
   GstElement *pipeline;
+  GstElement *playbin;
   GstElement *source;
-  GstElement *tsDemux;
+  GstElement *parsebin;
   GstElement *videoQueue;
   GstElement *dataQueue;
   GstElement *h264parse;
@@ -49,6 +50,9 @@ typedef struct _CustomData
 
 /* Handler for the pad-added signal */
 static void pad_added_handler(GstElement *src, GstPad *pad, CustomData *data);
+
+
+static void element_setup_handler(GstElement * playbin, GstElement * element, CustomData *data);
 
 /* The appsink has received a buffer */
 static GstFlowReturn new_sample(GstElement *sink, CustomData *data)
@@ -140,7 +144,7 @@ int main(int argc, char *argv[])
 
   /* Create the elements */
   data.source = gst_element_factory_make("filesrc", "source");
-  data.tsDemux = gst_element_factory_make("tsdemux", "demux");
+  data.parsebin = gst_element_factory_make("parsebin", "parsebin");
   data.videoQueue = gst_element_factory_make("queue", "videoQueue");
   data.dataQueue = gst_element_factory_make("queue", "dataQueue");
   data.h264parse = gst_element_factory_make("h264parse", "h264parse");
@@ -149,47 +153,56 @@ int main(int argc, char *argv[])
   data.dataSink = gst_element_factory_make("appsink", "dataSink");
 
   /* Create the empty pipeline */
-  data.pipeline = gst_pipeline_new("decode-pipeline");
+  //data.pipeline = gst_pipeline_new("decode-pipeline");
 
-  if (!data.pipeline || !data.source || !data.tsDemux || !data.videoQueue || !data.dataQueue || !data.h264parse || !data.avdec || !data.videoSink || !data.dataSink)
-  {
-    g_printerr("Not all elements could be created.\n");
-    return -1;
-  }
+//  const gchar * pipelineStr =  "filesrc location=/home/alexc/Movies/ArcGIS/Truck.ts ! parsebin name=parsebin ! video/x-h264 ! queue ! avdec_h264 ! autovideosink";       
+  const gchar * pipelineStr =  "playbin uri=file:///home/alexc/Movies/ArcGIS/Truck.ts name=playbin";    
+  g_print("%s", pipelineStr);
+  data.pipeline = gst_parse_launch(pipelineStr, NULL); 
 
-  /* Build the pipeline. Note that we are NOT linking the source at this point. We will do it later. */
-  gst_bin_add_many(GST_BIN(data.pipeline), data.source, data.tsDemux, data.videoQueue, data.dataQueue, data.h264parse, data.avdec, data.videoSink, data.dataSink, NULL);
 
-  if (!gst_element_link(data.source, data.tsDemux))
-  {
-    g_printerr("Cannot link source to demux.\n");
-    gst_object_unref(data.pipeline);
-    return -1;
-  }
+//  data.playbin = gst_bin_get_by_name (GST_BIN(data.pipeline), "playbin");
+  g_signal_connect(data.pipeline, "element_setup_callback", G_CALLBACK(element_setup_handler), &data);
 
-  if (!gst_element_link_many(data.videoQueue, data.h264parse, data.avdec, data.videoSink, NULL))
-  {
-    g_printerr("Video processing elements could not be linked.\n");
-    gst_object_unref(data.pipeline);
-    return -1;
-  }
+  // if (!data.pipeline || !data.source || !data.parsebin || !data.videoQueue || !data.dataQueue || !data.h264parse || !data.avdec || !data.videoSink || !data.dataSink)
+  // {
+  //   g_printerr("Not all elements could be created.\n");
+  //   return -1;
+  // }
 
-  if (!gst_element_link(data.dataQueue, data.dataSink))
-  {
-    g_printerr("Data processing elements could not be linked.\n");
-    gst_object_unref(data.pipeline);
-    return -1;
-  }
+  // /* Build the pipeline. Note that we are NOT linking the source at this point. We will do it later. */
+  // gst_bin_add_many(GST_BIN(data.pipeline), data.source, data.parsebin, data.videoQueue, data.dataQueue, data.h264parse, data.avdec, data.videoSink, data.dataSink, NULL);
 
-  /* Set the URI to play */
-  g_object_set(G_OBJECT(data.source), "location", SrcFileName.c_str(), NULL);
+  // if (!gst_element_link(data.source, data.parsebin))
+  // {
+  //   g_printerr("Cannot link source to demux.\n");
+  //   gst_object_unref(data.pipeline);
+  //   return -1;
+  // }
 
-  /* Configure appsink */
-  g_object_set(data.dataSink, "emit-signals", TRUE, NULL);
-  g_signal_connect(data.dataSink, "new-sample", G_CALLBACK(new_sample), &data);
+  // if (!gst_element_link_many(data.videoQueue, data.h264parse, data.avdec, data.videoSink, NULL))
+  // {
+  //   g_printerr("Video processing elements could not be linked.\n");
+  //   gst_object_unref(data.pipeline);
+  //   return -1;
+  // }
+
+  // if (!gst_element_link(data.dataQueue, data.dataSink))
+  // {
+  //   g_printerr("Data processing elements could not be linked.\n");
+  //   gst_object_unref(data.pipeline);
+  //   return -1;
+  // }
+
+  // /* Set the URI to play */
+  // g_object_set(G_OBJECT(data.source), "location", SrcFileName.c_str(), NULL);
+
+  // /* Configure appsink */
+  // g_object_set(data.dataSink, "emit-signals", TRUE, NULL);
+  // g_signal_connect(data.dataSink, "new-sample", G_CALLBACK(new_sample), &data);
 
   /* Connect to the pad-added signal */
-  g_signal_connect(data.tsDemux, "pad-added", G_CALLBACK(pad_added_handler), &data);
+  // g_signal_connect(data.parsebin, "pad-added", G_CALLBACK(pad_added_handler), &data);
 
   /* Start playing */
   ret = gst_element_set_state(data.pipeline, GST_STATE_PLAYING);
@@ -257,6 +270,20 @@ int main(int argc, char *argv[])
   return 0;
 }
 
+static void element_setup_handler(GstElement * playbin, GstElement * element, CustomData *data)
+{
+
+  if (GST_IS_ELEMENT(element))
+  {
+    g_print("Element %s was setup\n", GST_ELEMENT_NAME(element));
+  }
+  else
+  {
+    g_print("Element %s was setup\n", GST_ELEMENT_NAME(playbin));
+  }
+}
+
+
 /* This function will be called by the pad-added signal */
 static void pad_added_handler(GstElement *src, GstPad *new_pad, CustomData *data)
 {
@@ -273,6 +300,12 @@ static void pad_added_handler(GstElement *src, GstPad *new_pad, CustomData *data
   new_pad_type = gst_structure_get_name(new_pad_struct);
 
   g_print("Received new pad '%s' from '%s' of type '%s':\n", GST_PAD_NAME(new_pad), GST_ELEMENT_NAME(src), new_pad_type);
+
+
+
+  return;
+
+
 
   if (g_str_has_prefix(new_pad_type, "video/x-h264"))
     sink_pad = gst_element_get_static_pad(data->videoQueue, "sink");

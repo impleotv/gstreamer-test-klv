@@ -29,9 +29,16 @@ const char *PathToLibrary = "../../../bin/linux-x64/MisbCoreNativeLib.so";
 std::string PathToLicenseFile;
 std::string LicenseKey;
 
-typedef char *(*getNodeInfoFunc)();
-typedef bool (*activateFunc)(char *, char *);
-typedef char *(*encodeFunc)(char *, int &len);
+struct PcktBuffer
+{
+	char* buffer;
+	int length;
+};
+
+typedef char* (*getNodeInfoFunc)();
+typedef bool (*activateFunc)(char*, char*);
+typedef PcktBuffer (*encodeFunc)(char*);
+typedef char* (*decodeFunc)(char*, int len);
 typedef void (*cleanUpFunc)();
 
 void *handle;
@@ -181,7 +188,7 @@ int main(int argc, char *argv[])
   char *nodeInfo = GetNodeInfo();
   g_print("The NodeInfo: %s \n", nodeInfo);
 
-  encode601Pckt = (encodeFunc)funcAddr(handle, (char *)"Encode");
+  encode601Pckt = (encodeFunc)funcAddr(handle, (char*)"Encode");
 
   // data.pipeline = gst_pipeline_new("encode-pipeline");
 
@@ -192,9 +199,31 @@ int main(int argc, char *argv[])
   //data.pipeline = gst_parse_launch("urisourcebin uri=rtsp://192.168.1.3/onvif1 name=urisourcebin ! tee name=t t. ! decodebin ! autovideosink t. ! queue ! tsdemux name=tsdemux" , NULL);
  
   
-   const gchar * pipelineStr =  "rtspsrc location=rtsp://192.168.1.3/onvif1 ! decodebin ! timeoverlay halignment=center valignment=bottom ! video/x-raw ! x264enc tune=zerolatency ! tee name=tee "
-                   " tee. ! queue ! decodebin ! autovideoconvert ! autovideosink "
-                   " tee. ! video/x-h264, stream-format=byte-stream ! mpegtsmux name=mpegtsmux ! filesink name=filesink location=/home/alexc/tmp/test.ts async=false";       
+  //  const gchar * pipelineStr =  "rtspsrc location=rtsp://192.168.1.3/onvif1 ! decodebin ! timeoverlay halignment=center valignment=bottom ! video/x-raw ! x264enc tune=zerolatency ! tee name=tee"
+  //                  " tee. ! queue ! decodebin ! autovideoconvert ! autovideosink"
+  //                  " tee. ! video/x-h264, stream-format=byte-stream ! mpegtsmux name=mpegtsmux ! filesink name=filesink location=/home/alexc/tmp/test.ts async=false";       
+
+  
+  //  const gchar * pipelineStr =  "rtspsrc location=rtsp://192.168.1.3/onvif1 ! parsebin ! queue ! tee name=tee"
+  //                  " tee.  ! queue ! decodebin ! autovideoconvert ! autovideosink"
+  //                  " tee. ! queue ! h264parse ! video/x-h264 ! mpegtsmux name=mpegtsmux ! filesink name=filesink location=/home/alexc/tmp/test.ts async=false";       
+
+    // const gchar * pipelineStr =  "rtspsrc location=rtsp://192.168.1.3/onvif1 ! tee name=tee"
+    //                " tee. ! decodebin ! autovideoconvert ! autovideosink";
+    //                " tee. ! queue ! h264parse !  video/x-h264, stream-format=byte-stream ! mpegtsmux name=mpegtsmux ! rndbuffersize min=1316 max=1316 ! udpsink host=localhost port=5000";       
+
+    // const gchar * pipelineStr =  "filesrc location=/home/alexc/Movies/bipbop.ts ! tee name=tee"
+    //                " tee. ! decodebin ! autovideoconvert ! autovideosink";
+    //                " tee. ! parsebin ! video/x-h264 ! queue ! mpegtsmux name=mpegtsmux alignment=7 ! rndbuffersize min=1316 max=1316 ! udpsink host=227.1.1.1 port=30120";       
+
+ const gchar * pipelineStr =  "filesrc location=/home/alexc/Movies/bipbop.ts ! parsebin ! video/x-h264 ! queue ! rtph264pay ! mpegtsmux name=mpegtsmux alignment=7 ! rndbuffersize min=1316 max=1316  ! udpsink host=227.1.1.1 port=30120";       
+
+   // const gchar * pipelineStr =  "rtspsrc location=rtsp://192.168.1.3/onvif1 ! parsebin ! mpegtsmux name=mpegtsmux ! filesink name=filesink async=false";     
+  // const gchar * pipelineStr =  "rtspsrc location=rtsp://192.168.1.3/onvif1 ! parsebin ! video/x-h264, stream-format=byte-stream ! mpegtsmux name=mpegtsmux alignment=7 ! rndbuffersize min=1316 max=1316 ! udpsink host=227.1.1.1 port=30120";  
+   
+  // //  const gchar * pipelineStr =  "rtspsrc location=rtsp://192.168.1.3/onvif1 ! queue ! parsebin ! queue ! tee name=tee"
+  // //                  " tee. ! decodebin ! autovideoconvert ! autovideosink"
+  // //                  " tee. !  mpegtsmux name=mpegtsmux ! filesink name=filesink location=/home/alexc/tmp/test.ts async=false";       
 
   g_print("%s", pipelineStr);
   data.pipeline = gst_parse_launch(pipelineStr, NULL); 
@@ -219,31 +248,26 @@ int main(int argc, char *argv[])
   // GstElement* avdec = gst_element_factory_make("avdec_h264", "avdec");
   // GstElement* videoSink = gst_element_factory_make("autovideosink", "videoSink");
 
-  GstElement* filesink = gst_bin_get_by_name (GST_BIN(data.pipeline), "filesink");
-  g_object_set(G_OBJECT(filesink), "location", TargerPath.c_str(), NULL);
+ // GstElement* filesink = gst_bin_get_by_name (GST_BIN(data.pipeline), "filesink");
+ // g_object_set(G_OBJECT(filesink), "location", TargerPath.c_str(), NULL);
 
 
-  data.appsrc = gst_element_factory_make("appsrc", "appsrc");
-  gst_bin_add(GST_BIN(data.pipeline), data.appsrc);
-  g_object_set(G_OBJECT(data.appsrc), "caps", gst_caps_new_simple("meta/x-klv", "parsed", G_TYPE_BOOLEAN, TRUE, "spare", G_TYPE_BOOLEAN, TRUE, "is-live", G_TYPE_BOOLEAN, TRUE, NULL), NULL);
-  g_object_set(G_OBJECT(data.appsrc), "format", GST_FORMAT_TIME, NULL);
-  g_object_set(G_OBJECT(data.appsrc), "do-timestamp", TRUE, NULL);
-  g_signal_connect(data.appsrc, "need-data", G_CALLBACK(pushKlv), NULL);
+  // data.appsrc = gst_element_factory_make("appsrc", "appsrc");
+  // gst_bin_add(GST_BIN(data.pipeline), data.appsrc);
+  // g_object_set(G_OBJECT(data.appsrc), "caps", gst_caps_new_simple("meta/x-klv", "parsed", G_TYPE_BOOLEAN, TRUE, "spare", G_TYPE_BOOLEAN, TRUE, "is-live", G_TYPE_BOOLEAN, TRUE, NULL), NULL);
+  // g_object_set(G_OBJECT(data.appsrc), "format", GST_FORMAT_TIME, NULL);
+  // g_object_set(G_OBJECT(data.appsrc), "do-timestamp", TRUE, NULL);
+  // g_signal_connect(data.appsrc, "need-data", G_CALLBACK(pushKlv), NULL);
 
 
-  data.mpegtsmux = gst_bin_get_by_name (GST_BIN(data.pipeline), "mpegtsmux");
+  // data.mpegtsmux = gst_bin_get_by_name (GST_BIN(data.pipeline), "mpegtsmux");
   
-  if(!gst_element_link(data.appsrc, data.mpegtsmux))
-  {
-    g_print("Failed to link appsrc and mpegtsmux");
-    return -1;
-  }
-
-  // if (!data.pipeline || !data.mpegtsmux || !data.filesink)
+  // if(!gst_element_link(data.appsrc, data.mpegtsmux))
   // {
-  //   g_printerr("Not all elements could be created.\n");
+  //   g_print("Failed to link appsrc and mpegtsmux");
   //   return -1;
   // }
+
 
  // gst_bin_add_many(GST_BIN(data.pipeline), data.mpegtsmux,  data.fakesink /*data.filesink*/, data.h264parse, NULL);
 
@@ -553,7 +577,6 @@ static void pushKlv(GstElement *src, guint, GstElement)
   GstFlowReturn ret;
   GstBuffer *buffer;
   bool fInsert = false;
-  int len;
 
   // Wait for a frame duration interval since the last inserted packet. As we're inserting ASYNC KLV, it is good enough for the demo...
   while (!fInsert)
@@ -568,9 +591,9 @@ static void pushKlv(GstElement *src, guint, GstElement)
   }
 
   // First, encode the klv buffer from jsonPcktStr
-  char *buf = encode601Pckt((char *)(jsonPcktStr), len);
+  PcktBuffer pcktBuf = encode601Pckt((char*)(jsonPcktStr));
 
-  buffer = gst_buffer_new_allocate(NULL, len, NULL);
+  buffer = gst_buffer_new_allocate(NULL, pcktBuf.length, NULL);
 
   // For ASYNC_KLV, we need to remove timestamp and duration from the buffer
   GST_BUFFER_PTS(buffer) = GST_CLOCK_TIME_NONE;
@@ -578,7 +601,7 @@ static void pushKlv(GstElement *src, guint, GstElement)
   GST_BUFFER_DURATION(buffer) = GST_CLOCK_TIME_NONE;
 
   // Fill the buffer with the encoded KLV data
-  gst_buffer_fill(buffer, 0, buf, len);
+  gst_buffer_fill(buffer, 0, pcktBuf.buffer, pcktBuf.length);
 
   ret = gst_app_src_push_buffer((GstAppSrc *)src, buffer);
 
@@ -591,7 +614,7 @@ static void pushKlv(GstElement *src, guint, GstElement)
   {
     lastPcktTime = std::chrono::steady_clock::now();
     counter++;
-    g_print("\nKlv packet count: %llu.  Buf size: %d \n", counter, len);
+    g_print("\nKlv packet count: %llu.  Buf size: %d \n", counter, pcktBuf.length);
   }
 }
 

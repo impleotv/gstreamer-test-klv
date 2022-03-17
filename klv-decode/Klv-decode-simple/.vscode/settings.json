@@ -1,9 +1,9 @@
 {
     "cmake.debugConfig": {
         "args": [
-            "/home/alexc/Movies/Impleo/arava-1-1080p-6M.ts",
-            "/home/alexc/Licenses/MisbCoreLegion.lic",
-            "D6D237EF-6F41CFAF-7A37BA74-6656A4E5"  
+            "/home/alexc/Movies/ArcGIS/Truck.ts",
+            "/home/alexc/licenses/misbCore/MisbCore-Decode-unlocked.lic",
+            "0C203E11-847A7BF1-00B8B052-0B9F95AC"  
         ]
     },
     "files.associations": {

@@ -29,9 +29,16 @@ const char *PathToLibrary = "../../../bin/linux-x64/MisbCoreNativeLib.so";
 std::string PathToLicenseFile;
 std::string LicenseKey;
 
-typedef char *(*getNodeInfoFunc)();
-typedef bool (*activateFunc)(char *, char *);
-typedef char *(*encodeFunc)(char *, int &len);
+struct PcktBuffer
+{
+	char* buffer;
+	int length;
+};
+
+typedef char* (*getNodeInfoFunc)();
+typedef bool (*activateFunc)(char*, char*);
+typedef PcktBuffer (*encodeFunc)(char*);
+typedef char* (*decodeFunc)(char*, int len);
 typedef void (*cleanUpFunc)();
 
 void *handle;
@@ -148,7 +155,7 @@ int main(int argc, char *argv[])
   char *nodeInfo = GetNodeInfo();
   g_print("The NodeInfo: %s \n", nodeInfo);
 
-  encode601Pckt = (encodeFunc)funcAddr(handle, (char *)"Encode");
+	encode601Pckt = (encodeFunc)funcAddr(handle, (char*)"Encode");
 
   pipeline = gst_pipeline_new("encode-pipeline");
 
@@ -250,7 +257,6 @@ static void pushKlv(GstElement *src, guint, GstElement)
   GstFlowReturn ret;
   GstBuffer *buffer;
   bool fInsert = false;
-  int len;
 
   // Wait for a frame duration interval since the last inserted packet. As we're inserting ASYNC KLV, it is good enough for the demo...
   while (!fInsert)
@@ -265,9 +271,9 @@ static void pushKlv(GstElement *src, guint, GstElement)
   }
 
   // First, encode the klv buffer from jsonPcktStr
-  char *buf = encode601Pckt((char *)(jsonPcktStr), len);
+  PcktBuffer pcktBuf = encode601Pckt((char*)(jsonPcktStr));
 
-  buffer = gst_buffer_new_allocate(NULL, len, NULL);
+  buffer = gst_buffer_new_allocate(NULL, pcktBuf.length, NULL);
 
   // For ASYNC_KLV, we need to remove timestamp and duration from the buffer
   GST_BUFFER_PTS(buffer) = GST_CLOCK_TIME_NONE;
@@ -275,7 +281,7 @@ static void pushKlv(GstElement *src, guint, GstElement)
   GST_BUFFER_DURATION(buffer) = GST_CLOCK_TIME_NONE;
 
   // Fill the buffer with the encoded KLV data
-  gst_buffer_fill(buffer, 0, buf, len);
+  gst_buffer_fill(buffer, 0, pcktBuf.buffer, pcktBuf.length);
 
   ret = gst_app_src_push_buffer((GstAppSrc *)src, buffer);
 
@@ -288,6 +294,6 @@ static void pushKlv(GstElement *src, guint, GstElement)
   {
     lastPcktTime = std::chrono::steady_clock::now();
     counter++;
-    g_print("Klv packet count: %llu.  Buf size: %d \n", counter, len);
+    g_print("Klv packet count: %llu.  Buf size: %d \n", counter, pcktBuf.length);
   }
 }
