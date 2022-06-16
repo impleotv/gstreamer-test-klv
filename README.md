@@ -5,7 +5,7 @@
 
  ## KlvEncode
 
-  Demonstrates how to create a test H.264 video and multiplex it into standard compliant STANAG 4609 stream by encodeing MISB 601 metadata and injecting it into the stream
+ Demonstrates how to create a test H.264 video and multiplex it into standard-compliant STANAG 4609 stream by encoding MISB 601 metadata and injecting it into the stream
 
  ## KlvDecode
 
