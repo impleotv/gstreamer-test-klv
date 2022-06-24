@@ -38,3 +38,4 @@ CMakeLists.txt.*
 /bin/
 
 *.pdf
+**/Doc/html

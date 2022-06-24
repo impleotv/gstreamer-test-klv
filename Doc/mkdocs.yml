@@ -1,0 +1,31 @@
+site_name: GStreamerTest
+site_description: Getting Started with MisbCoreNative and GStreamer
+site_author: Impleotv Systems Ltd
+copyright: 'Copyright &copy; 2022 IMPLEOTV SYSTEMS LTD'
+
+theme:
+    name: mkdocs
+    custom_dir: custom_theme/
+  
+extra_css:
+  - css/extra.css
+
+nav:
+    - Home: index.md
+    - Getting started:    
+      - Visual Studio:
+        - Creating project: VisualStudio/vs-project.md
+        - Demo apps: VisualStudio/vs-demo-apps.md
+      - CMake:
+        - Creating project: Cmake/cmake-project.md      
+       
+    - STANAG 4609 and KLV:
+      - STANAG 4609: KLV/klv-in-stanag4609.md
+      - KLV: KLV/klv.md
+      - Data format: KLV/klv-data-format.md
+      - Validating streams: KLV/validating-stream.md 
+ 
+ 
+use_directory_urls: false
+   
+

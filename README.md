@@ -1,7 +1,7 @@
 # MisbCoreNative Gstreamer test applications
 
  GStreamer provides basic support for muxing and demuxing KLV metadata into/from STANAG 4609 files and streams.  
- This repository contains sample GStreamer pipelines for insertion and extraction of the metadata using MisbCoreNative library. 
+ This repository contains sample GStreamer pipelines for insertion and extraction of the metadata using the **MisbCoreNative** library. 
 
  ## KlvEncode
 
