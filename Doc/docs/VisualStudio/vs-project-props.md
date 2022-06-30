@@ -7,4 +7,6 @@ Go to the **Property Manager** (View→Property Manager), right-click on your pr
 
 ![Add Property Sheet](./images/vs-add-props.png)  
 
-Navigate to **GSTREAMER_ROOT_X86\share\vs\2010\libs** and load **gstreamer-1.0.props**.
+Navigate to **GSTREAMER_ROOT_X86\share\vs\2010\libs** and load **gstreamer-1.0.props**.  
+
+Now you should be able to compile the project. 
