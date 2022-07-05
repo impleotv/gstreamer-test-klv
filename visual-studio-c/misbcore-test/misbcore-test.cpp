@@ -8,10 +8,11 @@
 #include "windows.h"
 #include "io.h"
 
+
 using namespace std::chrono;
+std::string GetCurrentDirectory();
 
-
-const char* PathToLibrary = "../bin/MisbCoreNativeLib.dll";
+const char* PathToLibrary = "MisbCoreNativeLib.dll";
 const char* PathToLicenseFile = "D:\\GoogleDrive\\Doc\\Impleo\\Licenses\\Impleo\\MisbCoreNativeLegion.lic";
 const char* LicenseKey = "359D6D27-1797FD38-4D9774E4-C0D8CF3A";
 
@@ -141,13 +142,17 @@ typedef void (*cleanUpFunc)();
 
 int main()
 {
+
+	std::string cwd = GetCurrentDirectory();
+
 	// Check if the library file exists
-	if (checkAccess((char*)PathToLibrary, F_OK) == -1)
+	if (checkAccess((char*)PathToLibrary, F_OK) == -1 && checkAccess(((cwd + "\\" + (char*)PathToLibrary)).c_str(), F_OK) == -1)
 	{
-		puts("Couldn't find library at the specified path");
+		puts("Couldn't find the MisbCoreNativeLib.dll library neither in the specified path nor in the current working directory");
 		return 0;
 	}
 
+	
 	// Check if the license file exists
 	if (checkAccess((char*)PathToLicenseFile, F_OK) == -1)
 		puts("Couldn't find the license file. Will work in demo mode");
@@ -212,4 +217,14 @@ int main()
 
 	cleanUpFunc cleanUp = (cleanUpFunc)funcAddr(handle, (char*)"CleanUp");
 	cleanUp();
+}
+
+
+std::string GetCurrentDirectory()
+{
+	char buffer[MAX_PATH];
+	GetModuleFileNameA(NULL, buffer, MAX_PATH);
+	std::string::size_type pos = std::string(buffer).find_last_of("\\/");
+
+	return std::string(buffer).substr(0, pos);
 }
