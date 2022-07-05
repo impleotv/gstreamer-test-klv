@@ -27,5 +27,6 @@ Select **x64** Platform (MisbCoreNative is a 64 bit library). You can remove x86
 Now you need to define *inlcude* directories, link libraries, etc.  
 There are 2 ways to do this:  
 - Use [property sheet](./vs-project-props.md)  
+or  
 - Configure everything [manually](./vs-project-manually.md)
 
