@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.32602.291
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "gst-klv-decode", "gst-klv-test.vcxproj", "{AED1BDBE-AEED-411F-ADB4-A8A4A2BB5D75}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "gst-klv-decode", "gst-klv-test\gst-klv-test.vcxproj", "{AED1BDBE-AEED-411F-ADB4-A8A4A2BB5D75}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "misbcore-test", "..\misbcore-test\misbcore-test.vcxproj", "{F80CEEFA-B750-4492-AF16-EA23A8B931F9}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "misbcore-test", "misbcore-test\misbcore-test.vcxproj", "{F80CEEFA-B750-4492-AF16-EA23A8B931F9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,6 +26,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {55A4AC60-0225-4418-9AAD-961853F85F3F}
+		SolutionGuid = {982FDDAA-7B9E-4219-82EC-89C097859306}
 	EndGlobalSection
 EndGlobal
