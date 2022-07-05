@@ -8,19 +8,19 @@
 #include "windows.h"
 #include "io.h"
 
-
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 
-
+std::string GetCurrentDirectory();
 
 #ifndef F_OK
 #define F_OK 0
 #endif
 
 #define funcAddr GetProcAddress
+#define checkAccess _access
 
-const char* PathToLibrary = "../bin/MisbCoreNativeLib.dll";
+const char* PathToLibrary = "MisbCoreNativeLib.dll";
 
 std::string PathToLicenseFile;
 std::string LicenseKey;
@@ -117,12 +117,15 @@ int main(int argc, char* argv[])
     /* Initialize GStreamer */
     gst_init(&argc, &argv);
 
-    /* Check that misbCoreNative library exists */
-    if (_access((char*)PathToLibrary, F_OK) == -1)
+    std::string cwd = GetCurrentDirectory();
+
+    // Check if the library file exists
+    if (checkAccess((char*)PathToLibrary, F_OK) == -1 && checkAccess(((cwd + "\\" + (char*)PathToLibrary)).c_str(), F_OK) == -1)
     {
-        g_printerr("Couldn't find library at the specified path");
-        return -1;
+        puts("Couldn't find the MisbCoreNativeLib.dll library neither in the specified path nor in the current working directory");
+        return 0;
     }
+
 
     /* Load library */
     handle = LoadLibraryA((char*)PathToLibrary);
@@ -314,4 +317,14 @@ exit:
     /* Unreference the sink pad */
     if (sink_pad != NULL)
         gst_object_unref(sink_pad);
+}
+
+
+std::string GetCurrentDirectory()
+{
+    char buffer[MAX_PATH];
+    GetModuleFileNameA(NULL, buffer, MAX_PATH);
+    std::string::size_type pos = std::string(buffer).find_last_of("\\/");
+
+    return std::string(buffer).substr(0, pos);
 }
