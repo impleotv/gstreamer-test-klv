@@ -17,7 +17,7 @@ nav:
         - Creating project: VisualStudio/vs-project.md
         - Demo apps: VisualStudio/vs-demo-apps.md
       - CMake:
-        - Creating project: Cmake/cmake-project.md      
+        - Demo apps: Cmake/cmake-demo-apps.md
        
     - STANAG 4609 and KLV:
       - STANAG 4609: KLV/klv-in-stanag4609.md
