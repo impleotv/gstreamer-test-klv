@@ -1,21 +1,19 @@
 # Encoding STANAG 4609 MISB KLV with GStreamer and MisbCore library
 
- This sample application demonstrates how to create a simplified **GStreamer** pipeline for encoding and injecting MISB601 KLV metadata into STANAG 4609 files / streams using [MisbCore library](https://www.impleotv.com/content/misbcore/help/index.html)  
- 
+This sample application demonstrates how to create a simplified GStreamer pipeline for encoding and injecting MISB601 KLV metadata into STANAG 4609 files/streams using the **MisbCore** library.  
 
-For the sake of simplicity, we'll use GStreamer's **videotestsrc** as video source, encode it into H.264, encode a static metadata packet (updated with a current time ), multiplex everything and record into standard compliant STANAG 4609 file.
+For the sake of simplicity, we'll use GStreamer's **videotestsrc** as a video source, encode it into **H.264**, encode a static metadata packet (updated with a current time ), multiplex everything, and record it into a standard-compliant **STANAG 4609** file.
 
 ## Building the pipeline
 
-The code is pretty straightforward - we start manually creating a pipeline that consists from the **videotestsrc** and **x264enc** plugins, add multiplexer and a **filesink**. Some additional auxiliary plugins will be added as well...  
+The code is pretty straightforward - we start manually creating a pipeline that consists of the **videotestsrc** and **x264enc** plugins, add multiplexer, and a **filesink**. Some additional auxiliary plugins will be added as well...  
 
+## Walkthrough
 
-### Walkthrough
+*Below we'll show some essential code snippets - everything else is a regular GStreamer code...*  
 
-> Below we'll show some essential code snippets - everything else is a regular GStreamer code...
-
-As with all GStreamer applications, we start from creating a pipeline and loading plugins.  
-We'll use **appsrc** as our data source, so let's configure it:  
+As with all GStreamer applications, we start by creating a pipeline and loading plugins.
+We'll use appsrc as our data source, so let's configure it:  
 
 ```cpp
 g_object_set(G_OBJECT(dataSrc), "caps", gst_caps_new_simple("meta/x-klv", "parsed", G_TYPE_BOOLEAN, TRUE, "spare", G_TYPE_BOOLEAN, TRUE, "is-live", G_TYPE_BOOLEAN, TRUE, NULL), NULL);
@@ -23,18 +21,17 @@ g_object_set(G_OBJECT(dataSrc), "caps", gst_caps_new_simple("meta/x-klv", "parse
   g_object_set(G_OBJECT(dataSrc), "do-timestamp", TRUE, NULL);
 ```
 
-We should also configure video encoding and file target parameters (check out the sample source code for more info).
+We should also configure video encoding and file target parameters (check out the sample source code for more info).  
 
-Lets assign a callback **need-data** which will signal that the source needs more data. In this callback we'll encode our metadata and push the RAW KLV:   
+Let's assign a callback need-data which will signal that the source needs more data. In this callback we'll encode our metadata and push the RAW KLV:  
 
-```cpp
+```
 /* Assign callback to encode and push metadata */
   g_signal_connect(dataSrc, "need-data", G_CALLBACK(pushKlv), NULL);
 ```
+Before we implement the data injection, we need to load the **misbCoreNative** library:  
 
-Before we implement the data injection, we need to load the **misbCore** library:  
-
-First, we load the library (somewhere at the beginning of our application):  
+First, we load the library (somewhere at the beginning of our application):
 
 ```cpp
 void *handle;
@@ -45,13 +42,13 @@ handle = dlopen((char *)PathToLibrary, RTLD_LAZY);
 
 Next, we get the pointer to the **encode** method:  
 
-
-```cpp
+```
 typedef char *(*encodeFunc)(char *, int &len);
 encodeFunc encode601Pckt = (encodeFunc)funcAddr(handle, (char *)"Encode");
 ...
+```
 
-Now, lets look at the callback. 
+Now, let's look at the callback.   
 
 ```cpp
 static void pushKlv(GstElement *src, guint, GstElement)
@@ -65,7 +62,7 @@ static void pushKlv(GstElement *src, guint, GstElement)
   while (!fInsert)
   {
     std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-    float diff = std::chrono::duration<float>(now - lastPcktTime).count();
+    float diff = std::chrono::duration(now - lastPcktTime).count();
 
     if (diff > frameDuration)
       fInsert = true;
@@ -102,17 +99,16 @@ static void pushKlv(GstElement *src, guint, GstElement)
 }
 ```
 
-### Klv timestamp  
+### Klv timestamp
 
-In the sample, we don't provide a mandatory **Tag 2** (timestamp).  
-When no timestamp is found, **MisbCore** will automatically set the current time. 
+In the sample, we don't provide a mandatory **Tag 2** (timestamp).
+When no timestamp is found, MisbCore will automatically set the current time.
 
+### Running the application.
 
-## Running the application.
+Now, everything is ready and we can run the application:
 
-Now, everything is ready and we can run the application:  
-
-```bash
+```
 The NodeInfo: NI-MISBCORE-WCF9EAWJF46EC2EPQQXTFFDEH2NCB0KYXS1NBNHNSE0SB9K2KJAG: 
 Klv packet count: 1.  Buf size: 106 
 Klv packet count: 2.  Buf size: 106 
@@ -124,19 +120,19 @@ Klv packet count: 7.  Buf size: 106
 Klv packet count: 8.  Buf size: 106 
 Klv packet count: 9.  Buf size: 106 
 ```
-STANAG 4609 file should be created and a packet counter with the buffer size will be sent to console.
 
-## Cleaning up
+STANAG 4609 file should be created and a packet counter with the buffer size will be sent to the console.  
 
-**MisbCore** allocates memory for the last encoded buffer, so we need to free it at the end:  
+### Cleaning up
 
+**MisbCore** allocates memory for the last encoded buffer, so we need to free it at the end:
 
 ```cpp
-  /* Clean up allocated resources */
-	cleanUpFunc cleanUp = (cleanUpFunc)funcAddr(handle, (char*)"CleanUp");
-	cleanUp();  
- ``` 
+/* Clean up allocated resources */
+cleanUpFunc cleanUp = (cleanUpFunc)funcAddr(handle, (char*)"CleanUp");
+cleanUp();  
+```
 
-## Source code  
+## Source code
 
- The complete source code is available as part of SDK. 
+The complete source code is available as a sample.

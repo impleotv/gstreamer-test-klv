@@ -15,10 +15,12 @@ The latest version can be found [here](https://github.com/impleotv/misbcore-nati
 
 ## GStreamer Klv Decode
 
-This sample application demonstrates how to create a GStreamer pipeline for extracting and decoding ***MISB601** KLV metadata from **STANAG 4609** files/streams using **MisbCoreNative** library.  
-More [info](./cmake-gst-klv-decode-pipeline.md)
-
-### Klv Decode pipeline
+This sample application demonstrates how to create a **GStreamer** pipeline for extracting and decoding ***MISB601** KLV metadata from **STANAG 4609** files/streams using the **MisbCoreNative** library.  
+[Code Walkthrough](../DemoApps/gst-klv-decode-pipeline.md)
 
 
 ## GStreamer Klv Encode
+
+This sample application demonstrates how to create a simplified **GStreamer** pipeline for encoding and injecting **MISB601** KLV metadata into **STANAG 4609** files/streams using **MisbCoreNative** library.  
+[Code Walkthrough](../DemoApps/gst-klv-encode-pipeline.md)
+
