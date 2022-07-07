@@ -1,5 +1,11 @@
 # Encoding STANAG 4609 MISB KLV with GStreamer and MisbCore library
 
+<div align="left">
+	<font color="red">Please note, out-of-the box, GStreamer only supports ASYNC KLV. With SYNC KLV these demos won't work properly (playback will freeze, etc). You'll need to patch demux and mux to work with the SYNC KLV</font>
+	<p></p>
+</div>  
+
+
 This sample application demonstrates how to create a simplified GStreamer pipeline for encoding and injecting MISB601 KLV metadata into STANAG 4609 files/streams using the **MisbCore** library.  
 
 For the sake of simplicity, we'll use GStreamer's **videotestsrc** as a video source, encode it into **H.264**, encode a static metadata packet (updated with a current time ), multiplex everything, and record it into a standard-compliant **STANAG 4609** file.

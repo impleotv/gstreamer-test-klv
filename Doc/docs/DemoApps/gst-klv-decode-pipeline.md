@@ -1,5 +1,11 @@
 # Decoding STANAG 4609 MISB KLV with GStreamer and MisbCoreNative library
 
+<div align="left">
+	<font color="red">Please note, out-of-the box, GStreamer only supports ASYNC KLV. With SYNC KLV these demos won't work properly (playback will freeze, etc). You'll need to patch demux and mux to work with the SYNC KLV</font>
+	<p></p>
+</div>  
+
+
 This sample application demonstrates how to create a **GStreamer** pipeline for extracting and decoding **MISB601** KLV metadata from **STANAG 4609** files/streams using the **MisbCoreNative** library.  
 
 We will be manually creating a pipeline that resembles the following:
