@@ -18,4 +18,4 @@ We provide some simplified code samples that are intended to demonstrate how to 
 
 [GStreamer decode](./DemoApps/gst-klv-decode-pipeline.md) - a sample that demonstrates how to create a **GStreamer** pipeline for extracting and decoding **MISB601 KLV** metadata from **STANAG 4609** files/streams using the **MisbCoreNative** library.  
 
-[GStreamer decode](./DemoApps/gst-klv-encode-pipeline.md) - a sample that demonstrates how to create a simplified **GStreamer** pipeline for encoding and injecting **MISB601** KLV metadata into **STANAG 4609** files/streams using **MisbCoreNative** library.  
+[GStreamer encode](./DemoApps/gst-klv-encode-pipeline.md) - a sample that demonstrates how to create a simplified **GStreamer** pipeline for encoding and injecting **MISB601** KLV metadata into **STANAG 4609** files/streams using **MisbCoreNative** library.  
