@@ -1,0 +1,69 @@
+FROM ubuntu:latest
+
+# Install necessary tools and dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    gdb \
+    pkg-config \
+    ninja-build \
+    libglib2.0-dev \
+    liborc-0.4-dev \
+    libpango1.0-dev \
+    libgtk-3-dev \
+    git \
+    sudo \
+    python3 \
+    python3-pip \
+    python3-venv \
+    flex \
+    bison \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user
+ARG USERNAME=vscode
+ARG USER_UID=1001
+ARG USER_GID=$USER_UID
+
+# Create the group if it does not exist
+RUN if ! getent group $USER_GID; then \
+        groupadd --gid $USER_GID $USERNAME; \
+    fi \
+    && if ! getent passwd $USER_UID; then \
+        useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME; \
+    fi \
+    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
+
+# Add user to the necessary groups for debugging
+RUN usermod -aG sudo $USERNAME
+
+# Switch to the non-root user
+USER $USERNAME
+WORKDIR /home/$USERNAME
+
+# Create a Python virtual environment and install the latest meson
+RUN /bin/bash -c "python3 -m venv ~/.venv \
+    && source ~/.venv/bin/activate \
+    && pip install --upgrade pip \
+    && pip install meson"
+
+# Add the virtual environment to PATH
+ENV PATH="/home/$USERNAME/.venv/bin:$PATH"
+
+# Clone GStreamer repository and checkout specific version
+RUN git clone https://gitlab.freedesktop.org/gstreamer/gstreamer.git
+WORKDIR /home/$USERNAME/gstreamer
+RUN git checkout 1.24.4
+
+# Build and install GStreamer using the meson from the virtual environment
+# RUN /bin/bash -c "source ~/.venv/bin/activate \
+#     && meson setup builddir \
+#     && meson compile -C builddir \
+#     && meson install -C builddir"
+
+# Set the default shell to bash
+SHELL ["/bin/bash", "-c"]
+
+# Create a workspace directory
+WORKDIR /home/$USERNAME/workspace
