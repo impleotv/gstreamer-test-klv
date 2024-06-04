@@ -4,12 +4,9 @@
 #include <thread>
 #include <stdio.h>
 #include <unistd.h>
-
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
-
 #include <dlfcn.h>
-#include <unistd.h>
 
 #define funcAddr dlsym
 

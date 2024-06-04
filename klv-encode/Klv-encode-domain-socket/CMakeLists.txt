@@ -21,6 +21,5 @@ add_executable(klvInjectorUdpTarget main.c)
 
 target_link_libraries (klvInjectorUdpTarget
     gstapp-1.0
-    gstbase-1.0
     -pthread
     )

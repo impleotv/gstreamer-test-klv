@@ -43,13 +43,13 @@ USER $USERNAME
 WORKDIR /home/$USERNAME
 
 # Create a Python virtual environment and install the latest meson
-# RUN /bin/bash -c "python3 -m venv ~/.venv \
-#     && source ~/.venv/bin/activate \
-#     && pip install --upgrade pip \
-#     && pip install meson"
+RUN /bin/bash -c "python3 -m venv ~/.venv \
+    && source ~/.venv/bin/activate \
+    && pip install --upgrade pip \
+    && pip install meson"
 
 # Add the virtual environment to PATH
-#ENV PATH="/home/$USERNAME/.venv/bin:$PATH"
+ENV PATH="/home/$USERNAME/.venv/bin:$PATH"
 
 # Clone GStreamer repository and checkout specific version
 RUN git clone https://gitlab.freedesktop.org/gstreamer/gstreamer.git
@@ -57,7 +57,8 @@ WORKDIR /home/$USERNAME/gstreamer
 RUN git checkout 1.24.4
 
 # Build and install GStreamer using the meson from the virtual environment
-RUN /bin/bash -c "meson -Dgpl=enabled -Dugly=enabled -Dgst-plugins-ugly:x264=enabled builddir \
+RUN /bin/bash -c "source ~/.venv/bin/activate \
+    && meson -Dgpl=enabled -Dugly=enabled -Dgst-plugins-ugly:x264=enabled builddir \
     && meson setup  --prefix=/opt/gstreamer/1.24.4 builddir \
     && meson compile -C builddir \
     && meson install -C builddir"

@@ -25,20 +25,24 @@ sudo apt-get update && apt-get install -y \
     meson \
     flex \
     bison \
+    nasm \
 
 
 
+## Clone gstreamer
 
-
+git clone https://gitlab.freedesktop.org/gstreamer/gstreamer.git
+cd gstreamer
+git checkout 1.24.4
 
 
 ## 
 // Enable x264
 
 meson -Dgpl=enabled -Dugly=enabled -Dgst-plugins-ugly:x264=enabled builddir 
-
-meson setup --reconfigure --prefix=/opt/gstreamer/1.24.4 builddir
-
+meson setup  --prefix=/opt/gstreamer/1.24.4 builddir
+meson compile -C builddir
+meson install -C builddir     
 
 ## 
 Setup the paths:

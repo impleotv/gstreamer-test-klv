@@ -1,0 +1,11 @@
+{
+  "name": "GStreamer Development Environment",
+  "dockerFile": "../Dockerfile",
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash"
+  },
+  "extensions": [
+    "ms-vscode.cpptools"
+  ],
+  "workspaceFolder": "/home/vscode/workspace"
+}
